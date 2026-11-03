@@ -119,6 +119,19 @@ class TestIdentity(Page):
 
 class TestTable(Page):
 
+    async def test_the_heartbeat_pings_the_room_and_shows_a_new_host(self):
+        import asyncio
+        from unittest import mock
+        page = await self.open(f"/#{ROOM}", answer={**state(host="a"), "me": "b"})
+        self.assertFalse(view.is_host(page._state, "b"))
+        self.poker.answer = {**state(host="b"), "stamp": 2, "me": "b"}
+        with mock.patch("ycappuccino.planningpoker.page.poker_page.HEARTBEAT_SECONDS", 0.01):
+            page._beating.cancel()
+            page._beating = asyncio.ensure_future(page._heartbeat())
+            await asyncio.sleep(0.1)
+        self.assertIn(("ping", (ROOM, page._secret)), self.poker.calls)
+        self.assertTrue(view.is_host(page._state, "b"))
+
     async def test_votes_hidden_then_revealed(self):
         await self.open("/#" + ROOM, answer={**state(me_votes=True), "me": "b"})
         faces = [card.attrs["class"] for card in self.find(".pp-card")]

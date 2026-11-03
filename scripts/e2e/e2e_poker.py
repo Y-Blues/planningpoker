@@ -1,6 +1,6 @@
 """End-to-end: the server (run.sh, memory storage) and four browsers in one room -- create, join by nickname, a stolen
 nickname refused, hidden votes, reveal (average, nearest card, min, max), revote, next task, recap, remove, lock, an
-unknown room; the first load's size measured; screenshots.
+unknown room, an absent host's handover; the first load's size measured; screenshots.
     PYTHON=... uv run --no-project --with playwright python scripts/e2e/e2e_poker.py <screenshot dir>
 Starts and stops its own server (POKER_E2E_PORT, default 8197), or tests POKER_E2E_BASE (a deployment, its prefix
 included: http://localhost:8096/planningpoker/)."""
@@ -20,6 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 PORT = int(os.environ.get("POKER_E2E_PORT", "8197"))
 BASE = os.environ.get("POKER_E2E_BASE") or f"http://localhost:{PORT}/"
 BOOT, T = 180000, 20000
+ABSENT = 25  # the server's host_absent_seconds for the run (the page pings every 15 s)
 results = []
 
 
@@ -30,7 +31,7 @@ def check(name, ok, detail=""):
 
 def start_server():
     log = open(os.path.join(SHOTS, "server.log"), "w")
-    server = subprocess.Popen(["./run.sh"], cwd=ROOT, env={**os.environ, "HTTP_PORT": str(PORT)}, stdout=log,
+    server = subprocess.Popen(["./run.sh"], cwd=ROOT, env={**os.environ, "HTTP_PORT": str(PORT), "POKER_HOST_ABSENT_SECONDS": str(ABSENT)}, stdout=log,
                               stderr=subprocess.STDOUT, start_new_session=True)
     for _ in range(300):
         try:
@@ -182,10 +183,23 @@ def run(playwright):
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
     check("a known browser comes back as itself, even locked", "Bob" in bob.inner_text(".pp-me"))
 
+    # host handover: Alice (the host) leaves; once unseen for ABSENT seconds, Bob (the next joined) hosts
+    if not os.environ.get("POKER_E2E_BASE"):
+        alice.close()
+        bob.wait_for_function("document.querySelector('.pp-me').innerText.includes('animateur')", timeout=(ABSENT + 30) * 1000)
+        check("an absent host hands the room to the next participant", True)
+        check("the new host has the host's controls", bob.locator(".pp-task-form:not([hidden])").count() == 1 or
+              bob.locator(".pp-reveal").count() == 1)
+        back = context.new_page()
+        back.goto(link)
+        back.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
+        check("the old host comes back as a participant", "Alice" in back.inner_text(".pp-me") and
+              "animateur" not in back.inner_text(".pp-me") and back.locator(".pp-reveal").count() == 0)
+
     stranger = open_page(browser, BASE + "#" + secrets.token_urlsafe(24))
     stranger.wait_for_selector(".pp-error:not([hidden])", timeout=T)
     check("an unknown room is not found", stranger.inner_text(".pp-error") == "Salle introuvable.")
-    alice.screenshot(path=os.path.join(SHOTS, "5_recap_locked.png"), full_page=True)
+    bob.screenshot(path=os.path.join(SHOTS, "5_recap_locked.png"), full_page=True)
     browser.close()
 
 

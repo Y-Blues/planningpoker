@@ -3,6 +3,7 @@ import math
 import secrets
 import time
 import unittest
+from unittest import mock
 from importlib import resources
 
 import yaml
@@ -51,7 +52,7 @@ class TestRoomIds(Room):
 
     async def test_rooms_cannot_be_listed(self):
         self.assertEqual(set(get_rpc_methods(IPlanningPoker)), {
-            "create_room", "join", "state", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
+            "create_room", "join", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
         descriptor = yaml.safe_load(resources.files("ycappuccino.planningpoker").joinpath("ycappuccino_app.yml")
                                     .read_text(encoding="utf-8"))
         bundles = [bundle for part in descriptor["parts"].values() for bundle in part.get("bundles", [])]
@@ -209,6 +210,103 @@ class TestExpiry(Room):
         cascades = descriptor["components"]["PolymorphicCascade"]["cascades"]
         self.assertEqual({(c["item"], c["by"], c["of"]) for c in cascades},
                          {(item, "room", ROOM_ITEM) for item in (PARTICIPANT_ITEM, TASK_ITEM, VOTE_ITEM)})
+
+
+class TestHostHandover(Room):
+    """host_absent_seconds=120: a host unseen longer hands the room to the earliest-joined participant still present"""
+
+    def setUp(self):
+        super().setUp()
+        self.now = 1_000_000.0
+        patch = mock.patch("time.time", lambda: self.now)
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.poker = PlanningPoker(self.manager, NoLimits(), host_absent_seconds=120)
+
+    async def room3(self) -> str:
+        room = await self.room()  # Alice hosts, Bob joined
+        self.now += 10
+        await self.poker.join(room, self.chloe, "Chloé")
+        return room
+
+    async def host_of(self, room, who) -> str:
+        state = await self.poker.ping(room, who)
+        return next(p["nickname"] for p in state["participants"] if p["id"] == state["host"])
+
+    async def test_no_handover_before_two_minutes(self):
+        room = await self.room3()
+        self.now += 110  # exactly 120 s since Alice was last seen
+        self.assertEqual(await self.host_of(room, self.bob), "Alice")
+
+    async def test_handover_after_two_minutes_to_the_next_joined(self):
+        room = await self.room3()
+        self.now += 121
+        await self.poker.ping(room, self.chloe)  # Chloé present, Bob (joined first) absent too
+        self.now += 1
+        self.assertEqual(await self.host_of(room, self.chloe), "Chloé")
+        self.assertEqual(self.publisher.published[-1][1]["host"], self.manager.of(ROOM_ITEM)[0]["host"])
+
+    async def test_the_next_joined_still_present_is_chosen(self):
+        room = await self.room3()
+        for _ in range(3):
+            self.now += 60
+            await self.poker.ping(room, self.bob)
+            await self.poker.ping(room, self.chloe)
+        self.now += 130
+        state = await self.poker.ping(room, self.chloe)
+        self.assertEqual(next(p["nickname"] for p in state["participants"] if p["id"] == state["host"]), "Chloé")
+        state = await self.poker.ping(room, self.bob)  # Bob joined first but was absent the same time: not chosen
+        self.assertEqual(next(p["nickname"] for p in state["participants"] if p["id"] == state["host"]), "Chloé")
+
+    async def test_the_earliest_present_wins(self):
+        room = await self.room3()
+        self.now += 100
+        await self.poker.ping(room, self.chloe)
+        await self.poker.ping(room, self.bob)
+        self.now += 100
+        self.assertEqual(await self.host_of(room, self.chloe), "Bob")
+
+    async def test_the_old_host_returns_as_a_participant(self):
+        room = await self.room3()
+        self.now += 200
+        await self.poker.ping(room, self.bob)
+        self.assertEqual(await self.host_of(room, self.bob), "Bob")
+        state = await self.poker.join(room, self.alice, "Alice")
+        self.assertNotEqual(state["host"], state["me"])
+        with self.assertRaisesRegex(Forbidden, "animateur"):
+            await self.poker.lock(room, self.alice, True)
+
+    async def test_the_returning_host_keeps_the_room_if_nobody_checked(self):
+        room = await self.room3()
+        self.now += 500  # everyone absent, nobody called: the host's own call counts first
+        state = await self.poker.ping(room, self.alice)
+        self.assertEqual(state["host"], state["me"])
+
+    async def test_host_actions_are_enforced_for_the_new_host(self):
+        room = await self.room3()
+        await self.poker.next_task(room, self.alice, "1")
+        self.now += 200
+        await self.poker.vote(room, self.bob, "5")  # Bob's call hands the room over
+        with self.assertRaisesRegex(Forbidden, "animateur"):
+            await self.poker.reveal(room, self.alice)  # ... the old host (back) is a participant
+        with self.assertRaisesRegex(Forbidden, "animateur"):
+            await self.poker.reveal(room, self.chloe)
+        state = await self.poker.reveal(room, self.bob)
+        self.assertTrue(state["task"]["revealed"])
+        await self.poker.lock(room, self.bob, True)
+
+    async def test_the_call_that_hands_over_may_itself_be_a_host_action(self):
+        room = await self.room3()
+        await self.poker.next_task(room, self.alice, "1")
+        self.now += 200
+        state = await self.poker.reveal(room, self.bob)  # Bob's first call after Alice's absence
+        self.assertTrue(state["task"]["revealed"])
+
+    async def test_a_lone_absent_host_keeps_the_room(self):
+        answer = await self.poker.create_room(self.alice, "Alice")
+        self.now += 1000
+        state = await self.poker.state(answer["room"], self.alice)
+        self.assertEqual(state["host"], state["me"])
 
 
 class TestRateLimits(unittest.IsolatedAsyncioTestCase):

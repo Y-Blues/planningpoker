@@ -25,6 +25,7 @@ components:
     max_participants: ${poker.max_participants:30}
     max_tasks: ${poker.max_tasks:300}
     expiry_days: ${poker.expiry_days:90}
+    host_absent_seconds: ${poker.host_absent_seconds:120}
   RateLimits:                  # per visitor address: [max, window seconds]
     limits:
       create: [10, 3600]

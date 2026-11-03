@@ -1,11 +1,14 @@
 """PlanningPoker: IPlanningPoker on the store (IManager), nothing kept in memory. A caller is the browser's secret: its
 sha256 is bound to one nickname per room, so nobody else can act as that nickname. The room's creator is its host
-(reveal, revote, final estimate, next task, remove, lock). Every action ends by touching the room (active_at), whose
+(reveal, revote, final estimate, next task, remove, lock) until absent for host_absent_seconds (no call, no ping: the
+participant's seen_at): the earliest-joined participant still present then becomes host, the old host a plain one.
+The check runs in every participant's call, the store holding all of it. Every action ends by touching the room (active_at), whose
 upsert publishes the new state (RoomEvents). An unknown, malformed or purged room answers the same NOT_FOUND.
 
     PlanningPoker:
       max_participants: 30
       max_tasks: 300
+      host_absent_seconds: 120   # a host unseen that long hands the room to the next participant
       expiry_days: 90        # rooms inactive longer are purged when a room is created, and at start
 """
 
@@ -40,12 +43,13 @@ def secret_hash(secret: str) -> str:
 class PlanningPoker(IPlanningPoker):
 
     def __init__(self, manager: IManager, limits: IRateLimits, max_participants: int = 30, max_tasks: int = 300,
-                 expiry_days: float = 90) -> None:
+                 expiry_days: float = 90, host_absent_seconds: float = 120) -> None:
         self._manager = manager
         self._limits = limits
         self._max_participants = int(max_participants)
         self._max_tasks = int(max_tasks)
         self._expiry = float(expiry_days) * 86400
+        self._absent = float(host_absent_seconds)
 
     async def start(self) -> None:
         try:
@@ -68,7 +72,7 @@ class PlanningPoker(IPlanningPoker):
         person = new_id()
         await self._manager.up_sert(PARTICIPANT_ITEM, person, {
             "room": room, "nickname": name, "key": name.casefold(), "secret": secret_hash(secret),
-            "joined_at": time.time()})
+            "joined_at": time.time(), "seen_at": time.time()})
         await self._manager.up_sert(ROOM_ITEM, room, {"host": person, "locked": False, "task": "", "tasks": 0,
                                                       "active_at": time.time()})
         return await self._answer(room, person)
@@ -85,8 +89,9 @@ class PlanningPoker(IPlanningPoker):
         if holder is not None and holder is not mine:
             raise Forbidden("Ce pseudo est déjà pris dans cette salle.")
         if mine is not None:
-            if mine.get("nickname") != name:
-                await self._manager.up_sert(PARTICIPANT_ITEM, mine["_id"], {"nickname": name, "key": name.casefold()})
+            await self._manager.up_sert(PARTICIPANT_ITEM, mine["_id"], {"nickname": name, "key": name.casefold(),
+                                                                        "seen_at": time.time()})
+            await self._succeed(room, record)
             return await self._touched(room, mine["_id"])
         if record.get("locked"):
             raise Forbidden("La salle est verrouillée : demandez à l'animateur de l'ouvrir.")
@@ -95,13 +100,19 @@ class PlanningPoker(IPlanningPoker):
         person = new_id()
         await self._manager.up_sert(PARTICIPANT_ITEM, person, {
             "room": room, "nickname": name, "key": name.casefold(), "secret": secret_hash(secret),
-            "joined_at": time.time()})
+            "joined_at": time.time(), "seen_at": time.time()})
         return await self._touched(room, person)
 
     async def state(self, room: str, secret: str) -> dict:
         await self._room(room)
         person = await self._participant(room, secret) if is_secret(secret) else None
+        if person is not None:
+            await self._seen(room, person)
         return await self._answer(room, person["_id"] if person else None)
+
+    async def ping(self, room: str, secret: str) -> dict:
+        record, person = await self._caller(room, secret)
+        return await self._answer(room, person["_id"])
 
     async def vote(self, room: str, secret: str, card: str) -> dict:
         record, person = await self._caller(room, secret)
@@ -211,7 +222,28 @@ class PlanningPoker(IPlanningPoker):
         person = await self._participant(room, secret) if is_secret(secret) else None
         if person is None:
             raise Forbidden("Rejoignez la salle d'abord.")
+        record = await self._seen(room, person, record)
         return record, person
+
+    async def _seen(self, room: str, person: dict, record: dict | None = None) -> dict:
+        """the participant stamped as seen, then the host's succession checked: the room as it now is"""
+        await self._manager.up_sert(PARTICIPANT_ITEM, person["_id"], {"seen_at": time.time()})
+        record = record if record is not None else fields(await self._manager.get_one(ROOM_ITEM, room))
+        return await self._succeed(room, record)
+
+    async def _succeed(self, room: str, record: dict) -> dict:
+        """the host unseen for host_absent_seconds replaced by the earliest-joined participant seen within that time"""
+        now = time.time()
+        people = await records(self._manager, PARTICIPANT_ITEM, {"room": room})
+        seen = {person["_id"]: person.get("seen_at") or person.get("joined_at") or 0 for person in people}
+        if now - seen.get(record.get("host"), 0) <= self._absent:
+            return record
+        present = [person for person in people if now - seen[person["_id"]] <= self._absent]
+        if not present:
+            return record
+        heir = min(present, key=lambda person: (person.get("joined_at") or 0, person["_id"]))
+        await self._manager.up_sert(ROOM_ITEM, room, {"host": heir["_id"]})  # published to everyone (RoomEvents)
+        return {**record, "host": heir["_id"]}
 
     async def _host(self, room: str, secret: str) -> tuple[dict, dict]:
         record, person = await self._caller(room, secret)

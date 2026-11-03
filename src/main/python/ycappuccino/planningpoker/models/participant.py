@@ -10,7 +10,7 @@ class PokerParticipant(Model):
 
     def __init__(self, a_dict: dict | None = None) -> None:
         super().__init__(a_dict)
-        for name in ('room', 'nickname', 'key', 'secret', 'joined_at'):
+        for name in ('room', 'nickname', 'key', 'secret', 'joined_at', 'seen_at'):
             setattr(self, "_" + name, None)
 
     @Property(name="room", type="string", maxLength=200)
@@ -37,3 +37,8 @@ class PokerParticipant(Model):
     def joined_at(self, a_value) -> None:
         """epoch seconds"""
         self._joined_at = a_value
+
+    @Property(name="seen_at", type="number")
+    def seen_at(self, a_value) -> None:
+        """last call or heartbeat, epoch seconds: a host unseen for long hands the room over"""
+        self._seen_at = a_value

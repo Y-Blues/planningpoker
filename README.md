@@ -10,7 +10,8 @@ French UI. No account: pick a nickname, create a room, share its link.
 - **Identity**: the browser draws a 256-bit secret once and keeps it (localStorage). The server binds a nickname in a
   room to that secret (sha256), so nobody else can vote under it. Clearing the browser's data means a new identity.
 - **Host**: the room's creator reveals, revotes, sets the final estimate, starts the next task (numbers only), removes a
-  participant, locks the room.
+  participant, locks the room. A host unseen for 2 minutes (`host_absent_seconds`; the page pings every 15 s) hands the
+  room to the participant who joined next and is still present; the old host then returns as a normal participant.
 - **Votes** stay hidden until revealed; then each card, the average, the nearest card, min and max; a recap of the
   finished tasks.
 - **Live**: every call goes over a WebSocket (WS-RPC); each room's state is published on its pubsub topic.

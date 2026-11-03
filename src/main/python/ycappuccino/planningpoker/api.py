@@ -38,6 +38,11 @@ class IPlanningPoker(YCappuccinoComponent, ABC):
         """the room as anyone holding its link sees it"""
 
     @abstractmethod
+    @rpc_method(summary="tell the room this participant is still here", secure=False)
+    async def ping(self, room: str, secret: str) -> dict:
+        """the heartbeat: a host unseen for a while hands the room over to the next participant present"""
+
+    @abstractmethod
     @rpc_method(summary="vote on the current task", secure=False)
     async def vote(self, room: str, secret: str, card: str) -> dict:
         """a card of the deck, "" withdraws the vote"""

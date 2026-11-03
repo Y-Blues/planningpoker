@@ -18,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 SECRET_KEY = "planningpoker.secret"
 NICKNAME_KEY = "planningpoker.nickname"
+HEARTBEAT_SECONDS = 15  # well under the server's host_absent_seconds
 
 
 class PokerPage(ISubscriber, ISubscriptionListener):
@@ -35,6 +36,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._secret = ""
         self._loading: Optional[asyncio.Future] = None
         self._topic: Optional[str] = None
+        self._beating: Optional[asyncio.Future] = None
 
     async def start(self) -> None:
         self._dom = self._page.navigator().dom
@@ -46,10 +48,23 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._build(self._page.navigator().mount)
         self._dom.on_navigate(lambda _url: self.open_room(self._hash()))
         self._loading = asyncio.ensure_future(self.open_room(self._hash()))
+        self._beating = asyncio.ensure_future(self._heartbeat())
 
     async def stop(self) -> None:
         if self._loading is not None:
             self._loading.cancel()
+        if self._beating is not None:
+            self._beating.cancel()
+
+    async def _heartbeat(self) -> None:
+        """tells the server this participant is still here (a host unseen for long hands the room over)"""
+        while True:
+            await asyncio.sleep(HEARTBEAT_SECONDS)
+            if self._room and self._me is not None:
+                try:
+                    self._apply(await self._poker.ping(self._room, self._secret), self._me)
+                except Exception:  # a dropped connection: the next beat, or the resubscription, catches up
+                    _logger.debug("heartbeat failed", exc_info=True)
 
     # ------------------------------------------------------------------ server events
 
