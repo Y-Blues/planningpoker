@@ -1,0 +1,11 @@
+# Local run (run.sh): memory storage, nothing kept between runs. http://localhost:8080/
+name: planningpoker
+apps: [planningpoker]
+include: [ycappuccino.storage/profiles/memory.yml]
+public_path: ${http.public_path:}
+config:
+  http_server:
+    port: ${http.port:8080}
+    ip: ${http.ip:localhost}
+  shell:
+    console: false

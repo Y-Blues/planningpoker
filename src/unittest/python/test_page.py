@@ -1,0 +1,165 @@
+import unittest
+
+from ycappuccino.ui_web.navigation import Navigator
+from ycappuccino.ui_web.testing import FakeDom, FakeElement
+
+from ycappuccino.api.endpoints_storage import Forbidden, NotFound
+from ycappuccino.planningpoker.api import NOT_FOUND, room_topic
+from ycappuccino.planningpoker.page import view
+from ycappuccino.planningpoker.page.poker_page import SECRET_KEY, PokerPage
+
+ROOM = "R" * 32
+
+
+def state(me_votes=False, revealed=False, host="a", task=True, people=("a", "b")):
+    cards = {"a": "3", "b": "8"}
+    return {
+        "room": ROOM, "stamp": 1, "host": host, "locked": False,
+        "participants": [{"id": p, "nickname": p.upper(), "voted": me_votes, "card": cards[p] if revealed else None}
+                         for p in people],
+        "task": {"id": "t", "number": "12", "revealed": revealed, "final": "8" if revealed else ""} if task else None,
+        "results": {"votes": 2, "counts": {"3": 1, "8": 1}, "consensus": False, "average": 5.5, "nearest": "8",
+                    "min": "3", "max": "8"} if revealed else None,
+        "tasks": [{"number": "12", "final": "8"}] if revealed else [],
+    }
+
+
+class FakePoker:
+    def __init__(self):
+        self.calls = []
+        self.answer = None
+        self.error = None
+
+    def __getattr__(self, name):
+        async def call(*args):
+            self.calls.append((name, args))
+            if self.error is not None:
+                raise self.error
+            return self.answer
+        return call
+
+
+class FakeSubscriptions:
+    def __init__(self):
+        self.topics = []
+
+    async def subscribe(self, topic):
+        self.topics.append(topic)
+
+    async def unsubscribe(self, topic):
+        self.topics.remove(topic)
+
+
+class FakePage:
+    def __init__(self, dom):
+        self._navigator = Navigator(dom, FakeElement("div"))
+
+    def navigator(self):
+        return self._navigator
+
+
+class Page(unittest.IsolatedAsyncioTestCase):
+
+    async def open(self, location="/", answer=None, preferences=None):
+        self.dom = FakeDom(location)
+        self.dom.preferences.update(preferences or {})
+        self.poker = FakePoker()
+        self.poker.answer = answer
+        self.subscriptions = FakeSubscriptions()
+        self.page = PokerPage(FakePage(self.dom), self.poker, self.subscriptions)
+        await self.page.start()
+        await self.page._loading
+        return self.page
+
+    def find(self, selector):
+        return self.dom.query_all(self.page._page.navigator().mount, selector)
+
+    def hidden(self, key):
+        return "hidden" in self.page._ui[key].attrs
+
+
+class TestIdentity(Page):
+
+    async def test_a_strong_secret_is_drawn_once_and_kept(self):
+        await self.open()
+        secret = self.dom.preferences[SECRET_KEY]
+        self.assertGreaterEqual(len(secret), 43)
+        await self.open(preferences={SECRET_KEY: secret})
+        self.assertEqual(self.page._secret, secret)
+
+    async def test_creating_a_room_puts_it_in_the_address_and_follows_it(self):
+        await self.open()
+        self.assertFalse(self.hidden("welcome"))
+        self.assertEqual(self.page._ui["enter"].text, "Créer une salle")
+        self.poker.answer = {**state(task=False), "me": "a"}
+        await self.dom.type_text(self.page._ui["nickname"], "Alice")
+        await self.dom.click(self.page._ui["enter"])
+        self.assertEqual(self.poker.calls[-1], ("create_room", (self.page._secret, "Alice")))
+        self.assertEqual(self.dom.location(), "/#" + ROOM)
+        self.assertEqual(self.subscriptions.topics, [room_topic(ROOM)])
+        self.assertTrue(self.hidden("welcome"))
+        self.assertFalse(self.hidden("task_form"))  # the host picks the first task
+
+    async def test_a_link_shows_the_room_to_join(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": None})
+        self.assertEqual(self.page._ui["enter"].text, "Rejoindre")
+        self.assertEqual(self.subscriptions.topics, [room_topic(ROOM)])
+        self.poker.error = Forbidden("Ce pseudo est déjà pris dans cette salle.")
+        await self.dom.click(self.page._ui["enter"])
+        self.assertEqual(self.page._ui["error"].text, "Ce pseudo est déjà pris dans cette salle.")
+
+    async def test_an_unknown_room_says_so(self):
+        page = await self.open("/#" + "x" * 3)
+        self.assertEqual(page._ui["error"].text, NOT_FOUND)
+        self.poker.error = NotFound(NOT_FOUND)
+        await page.open_room("Z" * 32)
+        self.assertEqual(page._ui["error"].text, NOT_FOUND)
+        self.assertEqual(self.subscriptions.topics, [])
+
+
+class TestTable(Page):
+
+    async def test_votes_hidden_then_revealed(self):
+        await self.open("/#" + ROOM, answer={**state(me_votes=True), "me": "b"})
+        faces = [card.attrs["class"] for card in self.find(".pp-card")]
+        self.assertEqual(faces, ["pp-card is-down", "pp-card is-down"])
+        self.assertEqual(self.find(".pp-reveal"), [])  # b is not the host
+        await self.page.on_message(room_topic(ROOM), {**state(revealed=True), "stamp": 2})
+        self.assertEqual(sorted(card.text for card in self.find(".pp-card.is-up")), ["3", "8"])
+        self.assertTrue(self.hidden("deck") and not self.hidden("results"))
+        await self.page.on_message(room_topic(ROOM), {**state(), "stamp": 1})  # an older state: ignored
+        self.assertEqual(len(self.find(".pp-card.is-up")), 2)
+
+    async def test_the_host_reveals_and_removes(self):
+        await self.open("/#" + ROOM, answer={**state(me_votes=True), "me": "a"})
+        await self.dom.click(self.find(".pp-reveal")[0])
+        self.assertEqual(self.poker.calls[-1][0], "reveal")
+        await self.dom.click(self.find(".pp-remove")[0])
+        self.assertEqual(self.poker.calls[-1], ("remove", (ROOM, self.page._secret, "b")))
+
+    async def test_voting_and_withdrawing(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "b"})
+        five = next(card for card in self.find(".pp-deck-card") if card.text == "5")
+        self.poker.answer = {**state(me_votes=True), "stamp": 2, "me": "b"}
+        await self.dom.click(five)
+        self.assertEqual(self.poker.calls[-1], ("vote", (ROOM, self.page._secret, "5")))
+        five = next(card for card in self.find(".pp-deck-card") if card.text == "5")
+        self.assertIn("is-selected", five.attrs["class"])
+        self.poker.answer = {**state(), "stamp": 3, "me": "b"}
+        await self.dom.click(five)
+        self.assertEqual(self.poker.calls[-1], ("vote", (ROOM, self.page._secret, "")))
+
+    async def test_a_removed_participant_is_told(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "b"})
+        await self.page.on_message(room_topic(ROOM), {**state(people=("a",)), "stamp": 2})
+        self.assertIn("retiré", self.page._ui["error"].text)
+        self.assertFalse(self.hidden("welcome"))
+
+
+class TestView(unittest.TestCase):
+
+    def test_status_and_recap(self):
+        self.assertEqual(view.status(state(task=False), "a"), "Choisissez la première tâche.")
+        self.assertEqual(view.status(state(me_votes=True), "b"), "2 votes sur 2")
+        self.assertEqual(view.recap(state(revealed=True)), ([("12", "8")], "8"))
+        self.assertEqual(view.results(state(revealed=True))[0], ("Moyenne", "5,5"))

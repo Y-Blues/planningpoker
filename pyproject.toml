@@ -1,0 +1,50 @@
+[project]
+name = "ycappuccino-planningpoker"
+version = "0.1.0"
+description = "Planning poker on YCappuccino: anonymous nicknames, a shared room, live votes over WebSocket, a Pyodide page"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12"
+dependencies = [
+    "ycappuccino-api",
+    "ycappuccino-core",
+    "ycappuccino-storage",
+    "ycappuccino-endpoints-service",
+    "ycappuccino-hosts",
+    "ycappuccino-remote",
+    "ycappuccino-pubsub",
+    "ycappuccino-permissions",  # its Throttle only (rate limits); none of its components is loaded
+    "ycappuccino-client",
+    "ycappuccino-ui",
+    "ycappuccino-ui-web",
+]
+
+[project.entry-points."ycappuccino.apps"]
+planningpoker = "ycappuccino.planningpoker"
+
+[dependency-groups]
+dev = ["ycappuccino-build"]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "ycappuccino.planningpoker"
+module-root = "src/main/python"
+
+# the framework's repositories, checked out beside this one (they are private: see README)
+[tool.uv.sources]
+ycappuccino-api = { path = "../api", editable = true }
+ycappuccino-core = { path = "../core", editable = true }
+ycappuccino-storage = { path = "../storage", editable = true }
+ycappuccino-endpoints-service = { path = "../endpoints_service", editable = true }
+ycappuccino-endpoints-storage = { path = "../endpoints_storage", editable = true }
+ycappuccino-hosts = { path = "../hosts", editable = true }
+ycappuccino-remote = { path = "../remote", editable = true }
+ycappuccino-pubsub = { path = "../pubsub", editable = true }
+ycappuccino-permissions = { path = "../permissions_app", editable = true }
+ycappuccino-client = { path = "../client", editable = true }
+ycappuccino-ui = { path = "../ui", editable = true }
+ycappuccino-ui-web = { path = "../ui_web", editable = true }
+ycappuccino-build = { path = "../build", editable = true }

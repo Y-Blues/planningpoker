@@ -1,0 +1,13 @@
+# Until the framework's `poker` branches are released: the browser wheels are built from the <repo>-poker worktrees
+# beside this repo (run.sh: `--project conf/worktrees`). Never synced: only its [tool.uv.sources] is read.
+[project]
+name = "planningpoker-worktrees"
+version = "0"
+
+[tool.uv.sources]
+ycappuccino-api = { path = "../../../api-poker", editable = true }
+ycappuccino-core = { path = "../../../core-poker", editable = true }
+ycappuccino-client = { path = "../../../client-poker", editable = true }
+ycappuccino-ui = { path = "../../../ui-poker", editable = true }
+ycappuccino-ui-web = { path = "../../../ui_web-poker", editable = true }
+ycappuccino-planningpoker = { path = "../..", editable = true }

@@ -1,0 +1,151 @@
+/* Planning poker: the page's look (PokerPage's pp-* classes) and its loading screen; light and dark. */
+:root {
+  --pp-bg: #f4f6fa;
+  --pp-surface: #ffffff;
+  --pp-text: #1d2433;
+  --pp-muted: #5d6779;
+  --pp-line: #dde3ec;
+  --pp-accent: #4338ca;
+  --pp-accent-text: #ffffff;
+  --pp-accent-soft: #e6e8fb;
+  --pp-table: #e9eefa;
+  --pp-table-line: #c9d3ec;
+  --pp-danger: #b42318;
+  --pp-card-back: repeating-linear-gradient(135deg, #4338ca 0 6px, #5b52d6 6px 12px);
+  --pp-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 4px 12px rgba(16, 24, 40, .06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pp-bg: #10141c;
+    --pp-surface: #181d28;
+    --pp-text: #e7eaf1;
+    --pp-muted: #9aa3b5;
+    --pp-line: #2a3142;
+    --pp-accent: #8b85ff;
+    --pp-accent-text: #10141c;
+    --pp-accent-soft: #262a48;
+    --pp-table: #1c2335;
+    --pp-table-line: #303a55;
+    --pp-danger: #ff8a7a;
+    --pp-card-back: repeating-linear-gradient(135deg, #6c63ff 0 6px, #5149d6 6px 12px);
+    --pp-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--pp-bg); color: var(--pp-text); }
+body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+[hidden] { display: none !important; }
+
+/* loading screen (boot.js): three cards, the status line */
+#ycappuccino-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 22vh 16px;
+  color: var(--pp-muted); }
+#app:has(> :not(:empty)) + #ycappuccino-loading:not([data-error]) { display: none; }
+.pp-boot-cards { display: flex; gap: 8px; }
+.pp-boot-cards span { width: 30px; height: 44px; border-radius: 6px; background: var(--pp-card-back);
+  animation: pp-flip 1.2s ease-in-out infinite; }
+.pp-boot-cards span:nth-child(2) { animation-delay: .15s; }
+.pp-boot-cards span:nth-child(3) { animation-delay: .3s; }
+@keyframes pp-flip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.pp-app { max-width: 980px; margin: 0 auto; padding: 0 16px 48px; }
+.pp-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 16px 0; border-bottom: 1px solid var(--pp-line); margin-bottom: 20px; }
+.pp-brand { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+.pp-brand::before { content: ""; display: inline-block; width: 14px; height: 20px; margin-right: 8px; vertical-align: -3px;
+  border-radius: 3px; background: var(--pp-card-back); }
+.pp-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pp-me { color: var(--pp-muted); margin-right: 4px; }
+
+.pp-button { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid transparent; transition: background .15s, border-color .15s, transform .1s; }
+.pp-button:focus-visible, .pp-deck-card:focus-visible, .pp-chip:focus-visible, .pp-remove:focus-visible,
+.pp-input:focus-visible { outline: 3px solid var(--pp-accent); outline-offset: 2px; }
+.pp-primary { background: var(--pp-accent); color: var(--pp-accent-text); }
+.pp-primary:hover { filter: brightness(1.08); }
+.pp-ghost { background: var(--pp-surface); color: var(--pp-text); border-color: var(--pp-line); }
+.pp-ghost:hover { border-color: var(--pp-accent); }
+.pp-button[aria-disabled="true"] { opacity: .6; cursor: progress; }
+
+.pp-error { margin: 0 0 16px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--pp-danger);
+  color: var(--pp-danger); background: var(--pp-surface); }
+
+.pp-welcome { max-width: 440px; margin: 8vh auto 0; padding: 28px; background: var(--pp-surface);
+  border: 1px solid var(--pp-line); border-radius: 14px; box-shadow: var(--pp-shadow); }
+.pp-title { margin: 0 0 8px; font-size: 24px; }
+.pp-lead { margin: 0 0 20px; color: var(--pp-muted); }
+.pp-form { display: grid; gap: 8px; }
+.pp-label { font-size: 13px; font-weight: 600; color: var(--pp-muted); }
+.pp-input { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pp-line);
+  background: var(--pp-bg); color: var(--pp-text); }
+.pp-form .pp-button { margin-top: 8px; padding: 11px 14px; }
+
+.pp-task { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 16px; }
+.pp-task-title { margin: 0; font-size: 20px; }
+.pp-task-form { display: flex; align-items: center; gap: 8px; }
+.pp-input-small { width: 110px; padding: 8px 10px; }
+
+.pp-board { display: grid; gap: 18px; justify-items: center; padding: 8px 0 24px; }
+.pp-seats { display: flex; justify-content: center; flex-wrap: wrap; gap: 18px 22px; min-height: 104px; }
+.pp-seat { position: relative; display: grid; justify-items: center; gap: 6px; width: 92px; }
+.pp-name { display: grid; justify-items: center; font-size: 13px; text-align: center; max-width: 92px;
+  overflow-wrap: anywhere; }
+.pp-seat.is-me .pp-name > span:first-child { font-weight: 700; }
+.pp-badge { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--pp-accent); font-weight: 700; }
+.pp-remove { position: absolute; top: -8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--pp-line); background: var(--pp-surface); color: var(--pp-muted); cursor: pointer;
+  font-size: 14px; line-height: 1; opacity: 0; transition: opacity .15s; }
+.pp-seat:hover .pp-remove, .pp-remove:focus-visible { opacity: 1; }
+@media (hover: none) { .pp-remove { opacity: 1; } }
+
+.pp-card { width: 52px; height: 74px; border-radius: 8px; display: grid; place-items: center; font-weight: 700;
+  font-size: 20px; transition: transform .2s; }
+.pp-card.is-empty { border: 2px dashed var(--pp-line); }
+.pp-card.is-down { background: var(--pp-card-back); box-shadow: var(--pp-shadow); transform: translateY(-3px); }
+.pp-card.is-up { background: var(--pp-surface); border: 2px solid var(--pp-accent); color: var(--pp-accent);
+  box-shadow: var(--pp-shadow); }
+
+.pp-table { width: min(560px, 100%); min-height: 132px; border-radius: 70px; background: var(--pp-table);
+  border: 1px solid var(--pp-table-line); display: grid; place-content: center; justify-items: center; gap: 10px;
+  padding: 20px; }
+.pp-status { margin: 0; color: var(--pp-muted); font-weight: 600; }
+.pp-reveal { font-size: 16px; padding: 12px 34px; border-radius: 10px; }
+
+.pp-results { display: grid; gap: 14px; padding: 18px; margin-bottom: 20px; background: var(--pp-surface);
+  border: 1px solid var(--pp-line); border-radius: 12px; }
+.pp-stats { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0; }
+.pp-stat dt { font-size: 12px; color: var(--pp-muted); }
+.pp-stat dd { margin: 0; font-size: 22px; font-weight: 700; }
+.pp-distribution, .pp-final { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pp-chip { font: inherit; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--pp-line);
+  background: var(--pp-bg); color: var(--pp-text); }
+.pp-choice { cursor: pointer; font-weight: 600; min-width: 40px; }
+.pp-choice:hover { border-color: var(--pp-accent); }
+.pp-chip.is-selected { background: var(--pp-accent); color: var(--pp-accent-text); border-color: var(--pp-accent); }
+.pp-final-value { font-size: 18px; }
+
+.pp-deck { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 14px 8px 18px;
+  margin-bottom: 20px; border-top: 1px solid var(--pp-line); }
+.pp-deck-card { width: 52px; height: 76px; border-radius: 8px; font: inherit; font-size: 19px; font-weight: 700;
+  cursor: pointer; border: 2px solid var(--pp-accent); color: var(--pp-accent); background: var(--pp-surface);
+  transition: transform .12s, background .12s; }
+.pp-deck-card:hover:not([disabled]) { transform: translateY(-4px); }
+.pp-deck-card.is-selected { background: var(--pp-accent); color: var(--pp-accent-text); transform: translateY(-8px); }
+.pp-deck-card[disabled] { opacity: .45; cursor: not-allowed; }
+
+.pp-recap { padding: 18px; background: var(--pp-surface); border: 1px solid var(--pp-line); border-radius: 12px; }
+.pp-recap-title { margin: 0 0 10px; font-size: 16px; }
+.pp-recap-table { width: 100%; border-collapse: collapse; }
+.pp-recap-table th, .pp-recap-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--pp-line); }
+.pp-recap-table th { font-size: 12px; color: var(--pp-muted); font-weight: 600; }
+.pp-recap-table tfoot td { font-weight: 700; border-bottom: 0; }
+
+@media (max-width: 560px) {
+  .pp-seat { width: 76px; }
+  .pp-card { width: 44px; height: 62px; font-size: 17px; }
+  .pp-deck-card { width: 44px; height: 64px; font-size: 16px; }
+  .pp-table { border-radius: 36px; min-height: 110px; }
+}

@@ -1,0 +1,29 @@
+# The planning poker and its own MongoDB. Its port is published on the host's loopback only: the reverse proxy
+# (deploy/httpd/planningpoker.conf) is its only door, so X-Forwarded-For cannot be forged.
+#   GH_TOKEN=... docker compose -f deploy/docker-compose.yml up -d --build
+name: planningpoker
+services:
+  mongo:
+    image: docker.io/library/mongo:7
+    restart: unless-stopped
+    volumes: [mongo-data:/data/db]
+  planningpoker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      secrets: [gh_token]
+    image: planningpoker
+    restart: unless-stopped
+    depends_on: [mongo]
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB_NAME: planningpoker
+      PUBLIC_PATH: ${PUBLIC_PATH:-/planningpoker}
+      WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-https://ycappuccino.fr}
+    ports: ["127.0.0.1:${POKER_PORT:-8095}:8080"]
+    mem_limit: 384m
+secrets:
+  gh_token:
+    environment: GH_TOKEN
+volumes:
+  mongo-data:

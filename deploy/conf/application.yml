@@ -1,0 +1,12 @@
+# The container's host: MongoDB (MONGO_URI, database MONGO_DB_NAME), served under PUBLIC_PATH by the reverse proxy,
+# which removes it and sets X-Forwarded-For (the rate limits' visitor address).
+name: planningpoker
+apps: [planningpoker]
+include: [ycappuccino.storage/profiles/mongo.yml]
+public_path: ${public.path:/planningpoker}
+config:
+  http_server:
+    port: 8080
+    ip: 0.0.0.0
+  shell:
+    console: false

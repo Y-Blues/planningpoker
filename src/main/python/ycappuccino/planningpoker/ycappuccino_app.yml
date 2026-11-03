@@ -1,0 +1,52 @@
+# The planning poker as an app module (ycappuccino.core.composition): rooms reached by an unguessable link, anonymous
+# nicknames bound to each browser's secret, votes live over WebSocket (WS-RPC calls, pubsub topic per room), its
+# Pyodide page on /. No accounts, no CRUD API: the only public surface is IPlanningPoker. Storage and port are the host's.
+app: planningpoker
+label: Planning poker
+parts:
+  web:
+    bundles: [ycappuccino.endpoints_service, ycappuccino.hosts, ycappuccino.remote.servlet,   # remote's RPC doors only:
+              ycappuccino.remote.dispatch, ycappuccino.remote.capabilities]                  # no REST API
+  models:
+    bundles: [ycappuccino.planningpoker.models]
+  services:
+    bundles: [ycappuccino.planningpoker.rooms, ycappuccino.planningpoker.rate_limits,
+              ycappuccino.planningpoker.room_events, ycappuccino.planningpoker.topic_access,
+              ycappuccino.storage.polymorphic_cascade]   # a purged room's participants, tasks and votes
+  realtime:
+    bundles: [ycappuccino.pubsub, ycappuccino.remote.rpc_websocket_handler]
+  front:
+    fronts: [poker]
+layers: [ycappuccino_remote_ws_rpc]
+http:
+  websocket: true
+components:
+  PlanningPoker:
+    max_participants: ${poker.max_participants:30}
+    max_tasks: ${poker.max_tasks:300}
+    expiry_days: ${poker.expiry_days:90}
+  RateLimits:                  # per visitor address: [max, window seconds]
+    limits:
+      create: [10, 3600]
+      join_failure: [30, 600]  # unknown rooms asked
+      action: [300, 60]
+  PolymorphicCascade:
+    cascades:
+      - {id: room-participants, item: poker_participant, by: room, of: poker_room}
+      - {id: room-tasks, item: poker_task, by: room, of: poker_room}
+      - {id: room-votes, item: poker_vote, by: room, of: poker_room}
+  TopicModes:
+    topics: ["planningpoker.*=websocket"]
+  WebSocketGateway:
+    allowed_origins: "${ws.allowed_origins:}"
+  RpcWebSocketHandler:
+    allowed_origins: "${ws.allowed_origins:}"
+fronts:
+  poker:                       # the page (Pyodide), built into build/poker
+    path: /
+    directory: build/poker
+    priority: 0                # under the wheels mount (5): / would otherwise answer /wheels
+    label: Planning poker
+    client: ycappuccino.planningpoker/fronts/poker.json
+assets:
+  - copy: ycappuccino.planningpoker/static   # its index.html (French, noindex), stylesheet, robots.txt

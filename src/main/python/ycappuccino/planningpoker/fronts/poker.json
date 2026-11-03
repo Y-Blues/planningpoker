@@ -1,0 +1,21 @@
+{
+ "name": "planningpoker",
+ "shell": false,
+ "wheels": [
+  "ycappuccino-api",
+  "ycappuccino-core",
+  "ycappuccino-client",
+  "ycappuccino-ui",
+  "ycappuccino-ui-web",
+  "ycappuccino-planningpoker"
+ ],
+ "bundles": [
+  "ycappuccino.ui_web.page",
+  "ycappuccino.client.subscriber",
+  "ycappuccino.planningpoker.page.poker_page"
+ ],
+ "components": {
+  "PyodidePage": {"mount_selector": "#app", "stylesheets": "poker.css"}
+ },
+ "lang": "fr"
+}
