@@ -128,6 +128,7 @@ def run(playwright):
     check("three players at the table, live", alice.locator(".pp-seat").count() == 3)
 
     mallory = open_page(browser, link)
+    mallory.wait_for_selector("text=Rejoindre la salle", timeout=T)
     enter(mallory, "bob")
     mallory.wait_for_selector(".pp-error:not([hidden])", timeout=T)
     check("someone else cannot take Bob's nickname", "déjà pris" in mallory.inner_text(".pp-error"),
@@ -137,7 +138,8 @@ def run(playwright):
     check("only the host can reveal", bob.locator(".pp-reveal").count() == 0 and alice.locator(".pp-reveal").count() == 1)
     for page, card in ((alice, "3"), (bob, "5"), (chloe, "8")):
         page.click(f".pp-deck-card:text-is('{card}')")
-    alice.wait_for_function("document.querySelectorAll('.pp-card.is-down').length === 3", timeout=T)
+    for page in (alice, bob, chloe):
+        page.wait_for_function("document.querySelectorAll('.pp-card.is-down').length === 3", timeout=T)
     check("votes are hidden until revealed", seat_faces(bob) == ["is-down"] * 3 and
           bob.locator(".pp-card.is-up").count() == 0, str(seat_faces(bob)))
     alice.screenshot(path=os.path.join(SHOTS, "2_votes_hidden.png"), full_page=True)
@@ -176,6 +178,7 @@ def run(playwright):
     alice.click("text=Verrouiller")
     alice.wait_for_selector("text=Déverrouiller", timeout=T)
     dan = open_page(browser, link)
+    dan.wait_for_selector("text=Rejoindre la salle", timeout=T)
     enter(dan, "Dan")
     dan.wait_for_selector(".pp-error:not([hidden])", timeout=T)
     check("a locked room refuses newcomers", "verrouillée" in dan.inner_text(".pp-error"), dan.inner_text(".pp-error"))
