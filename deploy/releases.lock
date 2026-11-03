@@ -9,8 +9,8 @@ endpoints_service v0.1.1
 remote v0.7.19
 hosts v0.6.9
 pubsub v0.7.1
-permissions_app v0.7.36
+permissions_app v0.7.35
 client v0.6.6
-ui v0.5.49
-ui_web v0.6.46
+ui v0.5.48
+ui_web v0.6.45
 build v0.6.16
