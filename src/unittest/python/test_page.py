@@ -219,3 +219,36 @@ class TestView(unittest.TestCase):
         self.assertEqual(view.status(state(me_votes=True), "b"), "2 votes sur 2")
         self.assertEqual(view.recap(state(revealed=True)), ([("12", "8")], "8"))
         self.assertEqual(view.results(state(revealed=True))[0], ("Moyenne", "5,5"))
+
+    def test_moments_play_once(self):
+        first, snap = view.moments(None, state(), "a", "")
+        self.assertTrue(first["deal"])
+        self.assertEqual(first["joined"], {"a", "b"})
+        again, snap = view.moments(snap, state(), "a", "")
+        self.assertFalse(again["deal"] or again["joined"] or again["flip"])
+        voted, snap = view.moments(snap, state(me_votes=True), "a", "3")
+        self.assertEqual(voted["voted"], {"a", "b"})
+        self.assertTrue(voted["picked"])
+        shown, snap = view.moments(snap, {**state(revealed=True, me_votes=True)}, "a", "3")
+        self.assertTrue(shown["flip"] and not shown["celebrate"] and not shown["deal"])
+        revote, _ = view.moments(snap, state(), "a", "")
+        self.assertTrue(revote["deal"] and not revote["flip"])
+        agreed = state(revealed=True, me_votes=True)
+        agreed["results"] = {**agreed["results"], "consensus": True}
+        party, _ = view.moments(view.moments(None, state(me_votes=True), "a", "")[1], agreed, "a", "")
+        self.assertTrue(party["celebrate"])
+
+
+class TestMoments(Page):
+
+    async def test_the_reveal_keeps_playing_when_the_same_state_comes_twice(self):
+        await self.open("/#" + ROOM, answer={**state(me_votes=True), "me": "a"})
+        revealed = {**state(revealed=True, me_votes=True), "stamp": 2}
+        await self.page.on_message(room_topic(ROOM), revealed)
+        self.assertTrue(self.find(".pp-countdown"))
+        await self.page.on_message(room_topic(ROOM), revealed)  # the RPC answer, then the topic's message
+        self.assertTrue(self.find(".pp-countdown") and all("is-flip" in c.attrs["class"] for c in self.find(".pp-card")))
+        await self.page.on_message(room_topic(ROOM), {**revealed, "stamp": 3})  # same content, a newer stamp
+        self.assertTrue(self.find(".pp-countdown"))
+        await self.page.on_message(room_topic(ROOM), {**revealed, "stamp": 4, "task": {**revealed["task"], "final": "3"}})
+        self.assertFalse(self.find(".pp-countdown"))

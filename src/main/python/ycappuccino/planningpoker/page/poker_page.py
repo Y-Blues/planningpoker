@@ -5,6 +5,7 @@ the state again, so nothing is missed across a reconnection. Draws through the p
 
 import asyncio
 import logging
+import time
 from typing import Any, Optional
 
 from ycappuccino.api.pubsub import ISubscriber, ISubscriptionListener, ISubscriptions
@@ -22,6 +23,7 @@ AVATAR_KEY = "planningpoker.avatar"
 IPOPO_URL = "https://github.com/tcalmant/ipopo"
 YCAPPUCCINO_URL = "https://github.com/Y-Blues/core"
 HEARTBEAT_SECONDS = 15  # well under the server's host_absent_seconds
+MOMENT_SECONDS = 4  # the longest animation (the reveal's countdown, flips, confetti) is over by then
 
 
 class PokerPage(ISubscriber, ISubscriptionListener):
@@ -42,6 +44,10 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._loading: Optional[asyncio.Future] = None
         self._topic: Optional[str] = None
         self._beating: Optional[asyncio.Future] = None
+        self._before: Optional[dict] = None  # the last drawing's snapshot (view.moments)
+        self._moments: dict = {}  # what the current drawing animates
+        self._drawn: Optional[dict] = None  # the state drawn last (its stamp aside)
+        self._since = 0.0  # when the current moments started (a redraw resumes them where they are)
 
     async def start(self) -> None:
         self._dom = self._page.navigator().dom
@@ -89,7 +95,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         if room == self._room and self._state is not None:
             return
         await self._follow(None)
-        self._state, self._me, self._chosen = None, None, ""
+        self._state, self._me, self._chosen, self._before = None, None, "", None
         if room and not is_room_id(room):
             self._error(NOT_FOUND)
             room = ""
@@ -286,6 +292,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         board = self._el(room, "div", "pp-board")
         ui["top"] = self._el(board, "div", "pp-seats")
         table = self._el(board, "div", "pp-table")
+        ui["fx"] = self._el(table, "div", "pp-fx", aria_hidden="true")
         ui["status"] = self._el(table, "p", "pp-status")
         ui["table_actions"] = self._el(table, "div", "pp-table-actions")
         ui["bottom"] = self._el(board, "div", "pp-seats")
@@ -306,8 +313,24 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._show(ui["room"], joined)
         self._show(ui["tools"], joined)
         if not joined:
+            self._before = None
             self._draw_welcome()
             return
+        moments, self._before = view.moments(self._before, state, me, view.my_card(state, me, self._chosen))
+        drawn = {key: value for key, value in state.items() if key not in ("stamp", "me")}
+        elapsed = time.monotonic() - self._since
+        if drawn == self._drawn and elapsed < MOMENT_SECONDS:  # the same state again (an answer and its topic
+            # message, a ping): the animations go on from where they are
+            moments = {key: value | self._moments.get(key, value) for key, value in moments.items()}
+        else:
+            self._since, elapsed = time.monotonic(), 0.0
+        self._moments, self._drawn = moments, drawn
+        self._dom.set_attribute(ui["room"], "style", f"--pp-elapsed: {elapsed:.2f}s")
+        consensus = bool((state.get("task") or {}).get("revealed") and (state.get("results") or {}).get("consensus"))
+        if consensus:
+            self._dom.set_attribute(ui["room"], "data-consensus", "")
+        else:
+            self._dom.remove_attribute(ui["room"], "data-consensus")
         host = view.is_host(state, me)
         mine = next((seat for seat in view.seats(state, me) if seat["me"]), None)
         self._dom.set_text(ui["me"], f"{mine['avatar']} {mine['nickname']}{' · animateur' if host else ''}" if mine else "")
@@ -320,8 +343,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._show(ui["task_form"], host and (not task or task.get("revealed")))
         self._dom.set_text(ui["task_button"], "Tâche suivante" if task else "Commencer")
         top, bottom = view.split(view.seats(state, me))
-        self._draw_seats(ui["top"], top, host)
-        self._draw_seats(ui["bottom"], bottom, host)
+        self._draw_seats(ui["top"], top, host, 0)
+        self._draw_seats(ui["bottom"], bottom, host, 1)
         self._draw_table(state, host)
         self._draw_results(state, host)
         self._draw_deck(state)
@@ -350,15 +373,19 @@ class PokerPage(ISubscriber, ISubscriptionListener):
                          lambda chosen=avatar: pick(chosen), aria_pressed="true" if avatar == current else "false",
                          aria_label=f"Avatar {avatar}")
 
-    def _draw_seats(self, row: Any, seats: list, host: bool) -> None:
+    def _draw_seats(self, row: Any, seats: list, host: bool, offset: int) -> None:
         self._dom.clear(row)
-        for seat in seats:
-            classes = "pp-seat" + (" is-me" if seat["me"] else "")
-            element = self._el(row, "div", classes, data_participant=seat["id"])
-            card = self._el(element, "div", f"pp-card is-{seat['face']}",
+        moments = self._moments
+        for index, seat in enumerate(seats):
+            order = str(offset + 2 * index)  # around the table: top and bottom rows alternate
+            classes = "pp-seat" + (" is-me" if seat["me"] else "") + (" is-new" if seat["id"] in moments.get("joined", ()) else "") \
+                + (" is-fresh" if seat["id"] in moments.get("voted", ()) else "")
+            element = self._el(row, "div", classes, data_participant=seat["id"], style=f"--i: {order}")
+            card = self._el(element, "div", f"pp-card is-{seat['face']}" + (" is-flip" if moments.get("flip") else ""),
                             aria_label={"empty": "pas encore voté", "down": "a voté"}.get(seat["face"], seat["card"]))
             if seat["face"] == "up":
                 self._dom.set_text(card, seat["card"])
+                self._dom.set_attribute(card, "data-card", seat["card"])
             if seat["me"]:
                 self._button(element, "pp-avatar", seat["avatar"], self.toggle_picker, aria_label="Changer d'avatar",
                              title="Changer d'avatar")
@@ -376,6 +403,15 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui = self._ui
         self._dom.set_text(ui["status"], view.status(state, self._me))
         self._dom.clear(ui["table_actions"])
+        self._dom.clear(ui["fx"])
+        if self._moments.get("flip"):  # 3, 2, 1, then the cards flip (CSS)
+            countdown = self._el(ui["fx"], "div", "pp-countdown")
+            for number in ("3", "2", "1"):
+                self._el(countdown, "span", "", number)
+        if self._moments.get("celebrate"):  # a consensus: confetti (CSS)
+            confetti = self._el(ui["fx"], "div", "pp-confetti")
+            for _ in range(18):
+                self._el(confetti, "i")
         task = state.get("task")
         if not task or not host:
             return
@@ -387,15 +423,25 @@ class PokerPage(ISubscriber, ISubscriptionListener):
     def _draw_results(self, state: dict, host: bool) -> None:
         box = self._ui["results"]
         self._dom.clear(box)
+        fresh = self._moments.get("flip")
+        consensus = bool((state.get("results") or {}).get("consensus"))
+        self._dom.set_attribute(box, "class", "pp-results" + (" is-consensus" if consensus else "") + (" is-fresh" if fresh else ""))
         lines = view.results(state)
         self._show(box, bool(lines))
         if not lines:
             return
+        if consensus:
+            self._el(box, "p", "pp-consensus", "Consensus !")
         stats = self._el(box, "dl", "pp-stats")
         for label, value in lines:
             item = self._el(stats, "div", "pp-stat")
             self._el(item, "dt", "", label)
-            self._el(item, "dd", "", value)
+            number = self._el(item, "dd", "", value)
+            whole, _, fraction = value.partition(",")
+            if fresh and label == "Moyenne" and whole.isdigit():  # counts up from 0 (CSS, the text stays the value)
+                self._dom.set_attribute(number, "class", "pp-count")
+                self._dom.set_attribute(number, "style", f"--pp-n: {whole}")
+                self._dom.set_attribute(number, "data-fraction", f",{fraction}" if fraction else "")
         bars = self._el(box, "div", "pp-distribution")
         for card, count in view.distribution(state):
             self._el(bars, "span", "pp-chip", f"{card} × {count}")
@@ -416,10 +462,13 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._dom.clear(deck)
         active = view.can_vote(state, self._me)
         mine = view.my_card(state, self._me, self._chosen)
+        moments = self._moments
         self._show(deck, active)
-        for card in DECK:
-            button = self._button(deck, "pp-deck-card" + (" is-selected" if card == mine else ""), card,
-                                  lambda chosen=card: self.vote(chosen), aria_pressed="true" if card == mine else "false")
+        for index, card in enumerate(DECK):
+            classes = "pp-deck-card" + (" is-selected" if card == mine else "") + (" is-dealt" if moments.get("deal") else "") \
+                + (" is-picked" if card == mine and moments.get("picked") else "")
+            button = self._button(deck, classes, card, lambda chosen=card: self.vote(chosen),
+                                  aria_pressed="true" if card == mine else "false", data_card=card, style=f"--i: {index}")
             if not active:
                 self._dom.set_attribute(button, "disabled", "")
 

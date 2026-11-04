@@ -74,3 +74,23 @@ def recap(state: dict) -> tuple[list, str]:
     tasks = state.get("tasks") or []
     total = sum(value(task.get("final") or "") or 0 for task in tasks)
     return [(task.get("number") or "", task.get("final") or "–") for task in tasks], format_average(total)
+
+
+def moments(before: dict | None, state: dict, me: str | None, mine: str) -> tuple[dict, dict]:
+    """what changed since the last drawing, for the page's animations (each plays once, not on every redraw):
+    deal (new hand), flip (just revealed), celebrate (just revealed, a consensus), joined / voted (participant ids),
+    picked (my card just chosen); and the snapshot to pass as `before` next time (None: the first drawing)"""
+    task = state.get("task") or {}
+    people = state.get("participants") or []
+    now = {"task": task.get("id"), "revealed": bool(task.get("revealed")), "ids": {p["id"] for p in people},
+           "voted": {p["id"] for p in people if p.get("voted")}, "mine": mine}
+    same_task = before is not None and before["task"] == now["task"]
+    flip = same_task and not before["revealed"] and now["revealed"]
+    return {
+        "deal": bool(task) and not now["revealed"] and (not same_task or before["revealed"]),
+        "flip": flip,
+        "celebrate": flip and bool((state.get("results") or {}).get("consensus")),
+        "joined": now["ids"] - before["ids"] if before is not None else now["ids"],
+        "voted": now["voted"] - before["voted"] if same_task and not before["revealed"] else set(),
+        "picked": bool(mine) and (before is None or mine != before["mine"]),
+    }, now
