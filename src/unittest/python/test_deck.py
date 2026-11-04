@@ -37,7 +37,9 @@ class TestInputs(unittest.TestCase):
 
     def test_task_numbers(self):
         self.assertEqual(task_number(" #1234 "), "1234")
-        for wrong in ("", "12a", "-1", "1" * 11, "1 2"):
+        for key in ("KP-111", "kp-111", "12a", "ABC_12.3"):
+            self.assertEqual(task_number(key), key)
+        for wrong in ("", "-1", "KP-", "1" * 33, "1 2", "KP–111", "<b>"):
             self.assertIsNone(task_number(wrong), wrong)
 
     def test_ids(self):

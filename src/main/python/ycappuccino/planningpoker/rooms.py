@@ -158,7 +158,7 @@ class PlanningPoker(IPlanningPoker):
         record, person = await self._host(room, secret)
         cleaned = task_number(number)
         if cleaned is None:
-            raise InvalidRequest("Numéro de tâche invalide (des chiffres uniquement).")
+            raise InvalidRequest("Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).")
         order = int(record.get("tasks") or 0)
         if order >= self._max_tasks:
             raise InvalidRequest(f"Limite de {self._max_tasks} tâches atteinte : créez une nouvelle salle.")

@@ -251,7 +251,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui["task_form"] = task_form = self._el(task, "form", "pp-task-form")
         self._el(task_form, "label", "pp-label", "N° de tâche", for_="pp-task-number")
         ui["task_input"] = self._el(task_form, "input", "pp-input pp-input-small", id="pp-task-number",
-                                    inputmode="numeric", maxlength="11", placeholder="1234")
+                                    maxlength="33", placeholder="KP-111", autocapitalize="characters")
         ui["task_button"] = self._el(task_form, "button", "pp-button pp-primary", type="submit")
         self._dom.on_submit(task_form, ui["task_button"], self.next_task)
 
@@ -283,7 +283,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._dom.set_text(ui["lock"], "Déverrouiller" if state.get("locked") else "Verrouiller")
         self._dom.set_attribute(ui["lock"], "aria-pressed", "true" if state.get("locked") else "false")
         task = state.get("task")
-        self._dom.set_text(ui["task_title"], f"Tâche n° {task['number']}" if task else "Pas encore de tâche")
+        self._dom.set_text(ui["task_title"], f"Tâche {task['number']}" if task else "Pas encore de tâche")
         self._show(ui["task_form"], host and (not task or task.get("revealed")))
         self._dom.set_text(ui["task_button"], "Tâche suivante" if task else "Commencer")
         top, bottom = view.split(view.seats(state, me))

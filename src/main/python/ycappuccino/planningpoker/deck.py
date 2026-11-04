@@ -7,7 +7,7 @@ _VALUES = {"0": 0.0, "½": 0.5, "1": 1.0, "2": 2.0, "3": 3.0, "5": 5.0, "8": 8.0
 
 NICKNAME_MAX = 24
 _NICKNAME = re.compile(r"[^\W_]([\w .'’-]*[^\W_])?")
-_TASK_NUMBER = re.compile(r"\d{1,10}")
+_TASK_NUMBER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,30}[A-Za-z0-9])?")   # 1234, KP-111, ABC-12.3
 _SECRET = re.compile(r"[A-Za-z0-9_-]{32,128}")
 _ROOM_ID = re.compile(r"[A-Za-z0-9_-]{22,64}")
 
@@ -41,7 +41,7 @@ def nickname(text: str) -> str | None:
 
 
 def task_number(text: str) -> str | None:
-    """a task number (digits, a leading # dropped), None when invalid"""
+    """a task number or key (1234, KP-111: letters, digits, - _ . inside, 32 at most, a leading # dropped), None when invalid"""
     cleaned = str(text or "").strip().lstrip("#").strip()
     return cleaned if _TASK_NUMBER.fullmatch(cleaned) else None
 

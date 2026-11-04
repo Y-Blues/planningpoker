@@ -165,9 +165,9 @@ class TestVoting(Room):
         self.assertEqual((state["task"]["number"], state["task"]["revealed"]), ("8", False))
         self.assertEqual(state["tasks"], [{"number": "7", "final": "3"}])
 
-    async def test_tasks_are_numbers_and_capped(self):
+    async def test_tasks_are_numbers_or_keys_and_capped(self):
         room = await self.room()
-        for wrong in ("abc", "", "12345678901"):
+        for wrong in ("KP-", "", "1" * 33, "KP 111"):
             with self.assertRaisesRegex(InvalidRequest, "Numéro"):
                 await self.poker.next_task(room, self.alice, wrong)
         with self.assertRaises(Forbidden):
