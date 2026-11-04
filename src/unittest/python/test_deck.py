@@ -12,8 +12,8 @@ class TestResults(unittest.TestCase):
 
     def test_a_tie_takes_the_higher_card_and_half_counts(self):
         self.assertEqual(results(["2", "3"])["nearest"], "3")  # 2.5: between 2 and 3
-        self.assertEqual(results(["½", "½"])["average"], 0.5)
-        self.assertTrue(results(["½", "½"])["consensus"])
+        self.assertEqual(results(["5", "5"])["average"], 5.0)
+        self.assertTrue(results(["5", "5"])["consensus"])
 
     def test_question_and_coffee_are_not_numbers(self):
         summary = results(["?", "☕", "13"])
@@ -22,7 +22,8 @@ class TestResults(unittest.TestCase):
         self.assertIsNone(results([])["nearest"])
 
     def test_the_deck(self):
-        self.assertEqual(DECK, ("0", "½", "1", "2", "3", "5", "8", "13", "21", "?", "☕"))
+        self.assertEqual(DECK, ("0", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?", "☕"))
+        self.assertNotIn("½", DECK)
         self.assertEqual(format_average(5.25), "5,2")
         self.assertEqual(format_average(8.0), "8")
 
