@@ -438,7 +438,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         body = self._el(table, "tbody")
         for number, final in rows:
             row = self._el(body, "tr")
-            self._el(row, "td", "", f"n° {number}")
+            self._el(row, "td", "", str(number))
             self._el(row, "td", "", final)
         foot = self._el(self._el(table, "tfoot"), "tr")
         self._el(foot, "td", "", "Total")

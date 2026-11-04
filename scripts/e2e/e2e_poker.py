@@ -185,7 +185,7 @@ def run(playwright):
     alice.fill("#pp-task-number", "102")
     alice.click(".pp-task-form button")
     bob.wait_for_selector("text=Tâche 102", timeout=T)
-    check("recap of finished tasks", "n° 101" in bob.inner_text(".pp-recap") and "13" in bob.inner_text(".pp-recap"),
+    check("recap of finished tasks", "101" in bob.inner_text(".pp-recap") and "13" in bob.inner_text(".pp-recap"),
           bob.inner_text(".pp-recap").replace("\n", " | "))
 
     alice.hover(".pp-seat[data-participant] >> nth=2")
