@@ -11,13 +11,16 @@ from ycappuccino.api.pubsub import ISubscriber, ISubscriptionListener, ISubscrip
 from ycappuccino.ui_web.page import IWebPage
 
 from ycappuccino.planningpoker.api import NOT_FOUND, IPlanningPoker, room_topic
-from ycappuccino.planningpoker.deck import DECK, NICKNAME_MAX, is_room_id
+from ycappuccino.planningpoker.deck import AVATARS, DECK, NICKNAME_MAX, is_room_id
 from ycappuccino.planningpoker.page import browser, view
 
 _logger = logging.getLogger(__name__)
 
 SECRET_KEY = "planningpoker.secret"
 NICKNAME_KEY = "planningpoker.nickname"
+AVATAR_KEY = "planningpoker.avatar"
+IPOPO_URL = "https://github.com/tcalmant/ipopo"
+YCAPPUCCINO_URL = "https://github.com/Y-Blues/core"
 HEARTBEAT_SECONDS = 15  # well under the server's host_absent_seconds
 
 
@@ -34,6 +37,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._me: Optional[str] = None
         self._chosen = ""  # the card this page voted on the current task
         self._secret = ""
+        self._picking = False  # the in-room picker is open
+        self._avatar = ""  # the avatar picked on the join form ("": by nickname)
         self._loading: Optional[asyncio.Future] = None
         self._topic: Optional[str] = None
         self._beating: Optional[asyncio.Future] = None
@@ -45,6 +50,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         if len(self._secret) < 32:
             self._secret = browser.new_secret()
             self._dom.save_preference(SECRET_KEY, self._secret)
+        saved = self._dom.load_preference(AVATAR_KEY) or ""
+        self._avatar = saved if saved in AVATARS else ""
         self._build(self._page.navigator().mount)
         self._dom.on_navigate(lambda _url: self.open_room(self._hash()))
         self._loading = asyncio.ensure_future(self.open_room(self._hash()))
@@ -98,7 +105,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
 
     async def create(self) -> None:
         nickname = self._nickname()
-        answer = await self._call(self._poker.create_room(self._secret, nickname))
+        answer = await self._call(self._poker.create_room(self._secret, nickname, self._avatar))
         if answer is None:
             return
         self._room = answer["room"]
@@ -106,7 +113,24 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         await self._follow(self._room)
 
     async def join(self) -> None:
-        await self._call(self._poker.join(self._room, self._secret, self._nickname()))
+        await self._call(self._poker.join(self._room, self._secret, self._nickname(), self._avatar))
+
+    async def pick_avatar(self, avatar: str) -> None:
+        """the join form's choice (picking it again drops it), kept for next time"""
+        self._avatar = "" if avatar == self._avatar else avatar
+        self._dom.save_preference(AVATAR_KEY, self._avatar)
+        self._draw_picker(self._ui["welcome_picker"], self._avatar, self.pick_avatar)
+
+    async def set_avatar(self, avatar: str) -> None:
+        self._picking = False
+        self._show(self._ui["picker"], False)
+        if await self._call(self._poker.set_avatar(self._room, self._secret, avatar)) is not None:
+            self._avatar = avatar
+            self._dom.save_preference(AVATAR_KEY, avatar)
+
+    async def toggle_picker(self) -> None:
+        self._picking = not self._picking
+        self._show(self._ui["picker"], self._picking)
 
     async def vote(self, card: str) -> None:
         if not view.can_vote(self._state or {}, self._me):
@@ -242,10 +266,14 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui["nickname"] = self._el(form, "input", "pp-input", id="pp-nickname", maxlength=str(NICKNAME_MAX),
                                   autocomplete="nickname", placeholder="Ex. : Camille")
         self._dom.set_value(ui["nickname"], self._dom.load_preference(NICKNAME_KEY) or "")
+        self._el(form, "span", "pp-label", "Votre avatar (facultatif)", id="pp-avatar-label")
+        ui["welcome_picker"] = self._el(form, "div", "pp-picker", role="group", aria_labelledby="pp-avatar-label")
         ui["enter"] = self._el(form, "button", "pp-button pp-primary", type="submit")
         self._dom.on_submit(form, ui["enter"], lambda: self.join() if self._room else self.create())
 
         ui["room"] = room = self._el(app, "section", "pp-room")
+        ui["picker"] = self._el(room, "div", "pp-picker pp-picker-room", role="group", aria_label="Choisir votre avatar",
+                                hidden="")
         task = self._el(room, "div", "pp-task")
         ui["task_title"] = self._el(task, "h2", "pp-task-title")
         ui["task_form"] = task_form = self._el(task, "form", "pp-task-form")
@@ -265,6 +293,10 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui["deck"] = self._el(room, "div", "pp-deck", role="group", aria_label="Vos cartes")
         ui["results"] = self._el(room, "div", "pp-results")
         ui["recap"] = self._el(room, "div", "pp-recap")
+        footer = self._el(app, "footer", "pp-footer", "Propulsé par ")
+        self._el(footer, "a", "", "iPOPO", href=IPOPO_URL, target="_blank", rel="noopener")
+        self._el(footer, "span", "", " et ")
+        self._el(footer, "a", "", "YCappuccino", href=YCAPPUCCINO_URL, target="_blank", rel="noopener")
         self._draw()
 
     def _draw(self) -> None:
@@ -278,7 +310,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             return
         host = view.is_host(state, me)
         mine = next((seat for seat in view.seats(state, me) if seat["me"]), None)
-        self._dom.set_text(ui["me"], f"{mine['nickname']}{' · animateur' if host else ''}" if mine else "")
+        self._dom.set_text(ui["me"], f"{mine['avatar']} {mine['nickname']}{' · animateur' if host else ''}" if mine else "")
+        self._draw_picker(ui["picker"], mine["avatar"] if mine else "", lambda chosen: self.set_avatar(chosen))
         self._show(ui["lock"], host)
         self._dom.set_text(ui["lock"], "Déverrouiller" if state.get("locked") else "Verrouiller")
         self._dom.set_attribute(ui["lock"], "aria-pressed", "true" if state.get("locked") else "false")
@@ -296,6 +329,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
 
     def _draw_welcome(self) -> None:
         ui = self._ui
+        self._draw_picker(ui["welcome_picker"], self._avatar, self.pick_avatar)
         count = len((self._state or {}).get("participants") or [])
         if self._room:
             self._dom.set_text(ui["welcome_title"], "Rejoindre la salle")
@@ -308,6 +342,14 @@ class PokerPage(ISubscriber, ISubscriptionListener):
                                                    "votez en même temps, révélez.")
             self._dom.set_text(ui["enter"], "Créer une salle")
 
+    def _draw_picker(self, box: Any, current: str, pick) -> None:
+        """the avatars as toggle buttons, `current` pressed"""
+        self._dom.clear(box)
+        for avatar in AVATARS:
+            self._button(box, "pp-avatar-choice" + (" is-selected" if avatar == current else ""), avatar,
+                         lambda chosen=avatar: pick(chosen), aria_pressed="true" if avatar == current else "false",
+                         aria_label=f"Avatar {avatar}")
+
     def _draw_seats(self, row: Any, seats: list, host: bool) -> None:
         self._dom.clear(row)
         for seat in seats:
@@ -317,6 +359,11 @@ class PokerPage(ISubscriber, ISubscriptionListener):
                             aria_label={"empty": "pas encore voté", "down": "a voté"}.get(seat["face"], seat["card"]))
             if seat["face"] == "up":
                 self._dom.set_text(card, seat["card"])
+            if seat["me"]:
+                self._button(element, "pp-avatar", seat["avatar"], self.toggle_picker, aria_label="Changer d'avatar",
+                             title="Changer d'avatar")
+            else:
+                self._el(element, "span", "pp-avatar", seat["avatar"], aria_hidden="true")
             name = self._el(element, "div", "pp-name")
             self._el(name, "span", "", seat["nickname"])
             if seat["host"]:

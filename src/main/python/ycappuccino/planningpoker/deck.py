@@ -1,9 +1,12 @@
 """The deck and the rules every side shares (server and browser): cards, results of a vote, input checks."""
 
+import hashlib
 import re
 
 DECK = ("0", "½", "1", "2", "3", "5", "8", "13", "21", "?", "☕")
 _VALUES = {"0": 0.0, "½": 0.5, "1": 1.0, "2": 2.0, "3": 3.0, "5": 5.0, "8": 8.0, "13": 13.0, "21": 21.0}
+
+AVATARS = ("🦊", "🐼", "🐸", "🦉", "🐙", "🦄", "🐢", "🐝", "🐳", "🦔", "🐧", "🦁", "🍎", "🍋", "🍉", "🥑", "🍄", "🌵", "🚀", "🎸")
 
 NICKNAME_MAX = 24
 _NICKNAME = re.compile(r"[^\W_]([\w .'’-]*[^\W_])?")
@@ -38,6 +41,17 @@ def nickname(text: str) -> str | None:
     starting and ending with a letter or digit"""
     cleaned = " ".join(str(text or "").split())
     return cleaned if 0 < len(cleaned) <= NICKNAME_MAX and _NICKNAME.fullmatch(cleaned) else None
+
+
+def avatar(text: str) -> str | None:
+    """the avatar if it is one of AVATARS, else None"""
+    return text if isinstance(text, str) and text in AVATARS else None
+
+
+def default_avatar(nickname: str) -> str:
+    """the avatar a nickname gets when none is chosen: stable (same nickname, same avatar, whatever the case)"""
+    digest = hashlib.sha256(str(nickname).casefold().encode()).digest()
+    return AVATARS[int.from_bytes(digest[:4], "big") % len(AVATARS)]
 
 
 def task_number(text: str) -> str | None:

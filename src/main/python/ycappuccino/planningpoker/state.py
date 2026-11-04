@@ -6,7 +6,7 @@ import time
 from ycappuccino.api.storage import IManager
 
 from ycappuccino.planningpoker.api import PARTICIPANT_ITEM, ROOM_ITEM, TASK_ITEM, VOTE_ITEM
-from ycappuccino.planningpoker.deck import results
+from ycappuccino.planningpoker.deck import default_avatar, results
 
 _ALL = 1000  # far above the caps (participants, tasks)
 
@@ -36,7 +36,8 @@ async def room_state(manager: IManager, room_id: str) -> dict | None:
         "stamp": time.time_ns(),  # newer state wins in a browser receiving two out of order
         "host": room.get("host"),
         "locked": bool(room.get("locked")),
-        "participants": [{"id": person["_id"], "nickname": person.get("nickname"), "voted": person["_id"] in votes,
+        "participants": [{"id": person["_id"], "nickname": person.get("nickname"),
+                          "avatar": person.get("avatar") or default_avatar(person.get("nickname") or ""), "voted": person["_id"] in votes,
                           "card": votes.get(person["_id"]) if revealed else None} for person in people],
         "task": {"id": task["_id"], "number": task.get("number"), "revealed": revealed,
                  "final": task.get("final") or ""} if task else None,

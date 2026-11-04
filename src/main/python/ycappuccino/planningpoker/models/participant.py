@@ -10,7 +10,7 @@ class PokerParticipant(Model):
 
     def __init__(self, a_dict: dict | None = None) -> None:
         super().__init__(a_dict)
-        for name in ('room', 'nickname', 'key', 'secret', 'joined_at', 'seen_at'):
+        for name in ('room', 'nickname', 'key', 'secret', 'avatar', 'joined_at', 'seen_at'):
             setattr(self, "_" + name, None)
 
     @Property(name="room", type="string", maxLength=200)
@@ -22,6 +22,11 @@ class PokerParticipant(Model):
     def nickname(self, a_value) -> None:
         """as shown"""
         self._nickname = a_value
+
+    @Property(name="avatar", type="string", maxLength=16)
+    def avatar(self, a_value) -> None:
+        """one of deck.AVATARS (empty: derived from the nickname)"""
+        self._avatar = a_value
 
     @Property(name="key", type="string", maxLength=200)
     def key(self, a_value) -> None:

@@ -5,8 +5,9 @@ from ycappuccino.ui_web.testing import FakeDom, FakeElement
 
 from ycappuccino.api.endpoints_storage import Forbidden, NotFound
 from ycappuccino.planningpoker.api import NOT_FOUND, room_topic
+from ycappuccino.planningpoker.deck import AVATARS
 from ycappuccino.planningpoker.page import view
-from ycappuccino.planningpoker.page.poker_page import SECRET_KEY, PokerPage
+from ycappuccino.planningpoker.page.poker_page import AVATAR_KEY, SECRET_KEY, PokerPage
 
 ROOM = "R" * 32
 
@@ -15,7 +16,7 @@ def state(me_votes=False, revealed=False, host="a", task=True, people=("a", "b")
     cards = {"a": "3", "b": "8"}
     return {
         "room": ROOM, "stamp": 1, "host": host, "locked": False,
-        "participants": [{"id": p, "nickname": p.upper(), "voted": me_votes, "card": cards[p] if revealed else None}
+        "participants": [{"id": p, "nickname": p.upper(), "avatar": "🦊" if p == "a" else "🐼", "voted": me_votes, "card": cards[p] if revealed else None}
                          for p in people],
         "task": {"id": "t", "number": "12", "revealed": revealed, "final": "8" if revealed else ""} if task else None,
         "results": {"votes": 2, "counts": {"3": 1, "8": 1}, "consensus": False, "average": 5.5, "nearest": "8",
@@ -94,7 +95,7 @@ class TestIdentity(Page):
         self.poker.answer = {**state(task=False), "me": "a"}
         await self.dom.type_text(self.page._ui["nickname"], "Alice")
         await self.dom.click(self.page._ui["enter"])
-        self.assertEqual(self.poker.calls[-1], ("create_room", (self.page._secret, "Alice")))
+        self.assertEqual(self.poker.calls[-1], ("create_room", (self.page._secret, "Alice", "")))
         self.assertEqual(self.dom.location(), "/#" + ROOM)
         self.assertEqual(self.subscriptions.topics, [room_topic(ROOM)])
         self.assertTrue(self.hidden("welcome"))
@@ -167,6 +168,48 @@ class TestTable(Page):
         await self.page.on_message(room_topic(ROOM), {**state(people=("a",)), "stamp": 2})
         self.assertIn("retiré", self.page._ui["error"].text)
         self.assertFalse(self.hidden("welcome"))
+
+
+class TestAvatarAndFooter(Page):
+
+    async def test_the_footer_credits_ipopo_and_ycappuccino(self):
+        await self.open()
+        links = self.find("a")
+        self.assertEqual([link.text for link in links], ["iPOPO", "YCappuccino"])
+        for link in links:
+            self.assertEqual(link.attrs["target"], "_blank")
+            self.assertEqual(link.attrs["rel"], "noopener")
+            self.assertTrue(link.attrs["href"].startswith("https://"))
+
+    async def test_the_join_form_picks_keeps_and_sends_an_avatar(self):
+        await self.open()
+        choices = self.dom.query_all(self.page._ui["welcome_picker"], ".pp-avatar-choice")
+        self.assertEqual(len(choices), len(AVATARS))
+        self.assertTrue(all(c.attrs["aria-label"] and c.attrs["aria-pressed"] == "false" for c in choices))
+        await self.dom.click(choices[3])
+        self.assertEqual(self.dom.preferences[AVATAR_KEY], AVATARS[3])
+        self.assertEqual(self.dom.query_all(self.page._ui["welcome_picker"], ".pp-avatar-choice")[3].attrs["aria-pressed"], "true")
+        self.poker.answer = {**state(task=False), "me": "a"}
+        await self.dom.type_text(self.page._ui["nickname"], "Alice")
+        await self.dom.click(self.page._ui["enter"])
+        self.assertEqual(self.poker.calls[-1], ("create_room", (self.page._secret, "Alice", AVATARS[3])))
+
+    async def test_the_last_choice_is_preselected(self):
+        await self.open(preferences={AVATAR_KEY: AVATARS[5]})
+        self.assertEqual(self.dom.query_all(self.page._ui["welcome_picker"], ".pp-avatar-choice")[5].attrs["aria-pressed"], "true")
+
+    async def test_the_room_shows_avatars_and_my_own_reopens_the_picker(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "a"})
+        self.assertEqual(sorted(seat.text for seat in self.find(".pp-avatar")), ["🐼", "🦊"])
+        self.assertEqual(len(self.find("button.pp-avatar")), 1)  # only mine
+        self.assertTrue(self.hidden("picker"))
+        await self.dom.click(self.find("button.pp-avatar")[0])
+        self.assertFalse(self.hidden("picker"))
+        self.poker.answer = {**state(), "stamp": 2, "me": "a"}
+        await self.dom.click(self.dom.query_all(self.page._ui["picker"], ".pp-avatar-choice")[1])
+        self.assertEqual(self.poker.calls[-1], ("set_avatar", (ROOM, self.page._secret, AVATARS[1])))
+        self.assertTrue(self.hidden("picker"))
+        self.assertEqual(self.dom.preferences[AVATAR_KEY], AVATARS[1])
 
 
 class TestView(unittest.TestCase):

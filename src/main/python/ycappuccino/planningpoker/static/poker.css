@@ -149,3 +149,19 @@ body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   .pp-deck-card { width: 44px; height: 64px; font-size: 16px; }
   .pp-table { border-radius: 36px; min-height: 110px; }
 }
+
+.pp-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-picker-room { justify-content: center; padding: 12px; margin-bottom: 16px; background: var(--pp-surface);
+  border: 1px solid var(--pp-line); border-radius: 12px; }
+.pp-form .pp-avatar-choice { margin: 0; }
+.pp-avatar-choice { font-size: 22px; line-height: 1; width: 40px; height: 40px; padding: 0; border-radius: 10px; cursor: pointer;
+  border: 2px solid var(--pp-line); background: var(--pp-bg); }
+.pp-avatar-choice:hover { border-color: var(--pp-accent); }
+.pp-avatar-choice.is-selected { border-color: var(--pp-accent); background: var(--pp-accent-soft); }
+.pp-avatar-choice:focus-visible, button.pp-avatar:focus-visible { outline: 3px solid var(--pp-accent); outline-offset: 2px; }
+.pp-avatar { font-size: 24px; line-height: 1; padding: 0; border: 0; background: none; }
+button.pp-avatar { cursor: pointer; border-radius: 8px; }
+.pp-footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--pp-line); text-align: center;
+  font-size: 12px; color: var(--pp-muted); }
+.pp-footer a { color: inherit; text-decoration: underline; }
+.pp-footer a:hover { color: var(--pp-accent); }

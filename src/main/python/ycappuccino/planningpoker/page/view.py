@@ -5,14 +5,15 @@ from ycappuccino.planningpoker.deck import DECK, format_average, value
 
 
 def seats(state: dict, me: str | None) -> list:
-    """each participant: nickname, whether it is me / the host, its card's face: "empty" (no vote), "down" (voted,
+    """each participant: nickname, avatar, whether it is me / the host, its card's face: "empty" (no vote), "down" (voted,
     hidden), "up" (revealed, with the card)"""
     task = state.get("task") or {}
     revealed = bool(task.get("revealed"))
     result = []
     for person in state.get("participants") or []:
         face = "up" if revealed and person.get("card") else "down" if person.get("voted") else "empty"
-        result.append({"id": person["id"], "nickname": person.get("nickname") or "", "me": person["id"] == me,
+        result.append({"id": person["id"], "nickname": person.get("nickname") or "", "avatar": person.get("avatar") or "",
+                       "me": person["id"] == me,
                        "host": person["id"] == state.get("host"), "face": face, "card": person.get("card") or ""})
     return result
 

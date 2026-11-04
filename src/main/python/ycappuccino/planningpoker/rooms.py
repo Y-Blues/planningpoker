@@ -22,12 +22,13 @@ from ycappuccino.api.storage import IManager
 
 from ycappuccino.planningpoker.api import (NOT_FOUND, PARTICIPANT_ITEM, ROOM_ITEM, TASK_ITEM, VOTE_ITEM, IPlanningPoker,
                                            IRateLimits)
-from ycappuccino.planningpoker.deck import DECK, is_room_id, is_secret, nickname, results, task_number
+from ycappuccino.planningpoker.deck import DECK, avatar as avatar_of, is_room_id, is_secret, nickname, results, task_number
 from ycappuccino.planningpoker.state import fields, records, room_state
 
 _logger = logging.getLogger(__name__)
 
 ROOM_ID_BYTES = 24  # 192 bits, 32 URL-safe characters
+_BAD_AVATAR = "Avatar inconnu : choisissez-en un dans la liste."
 HOST_ONLY = "Réservé à l'animateur de la salle."
 _PURGE_BATCH = 100
 
@@ -62,24 +63,26 @@ class PlanningPoker(IPlanningPoker):
 
     # ------------------------------------------------------------------ anyone
 
-    async def create_room(self, secret: str, nickname: str) -> dict:
+    async def create_room(self, secret: str, nickname: str, avatar: str = "") -> dict:
         self._limits.check("create")
         name = _nickname(nickname)
+        chosen = _avatar(avatar)
         _secret(secret)
         self._limits.count("create")
         await self.purge()
         room = new_id()
         person = new_id()
         await self._manager.up_sert(PARTICIPANT_ITEM, person, {
-            "room": room, "nickname": name, "key": name.casefold(), "secret": secret_hash(secret),
-            "joined_at": time.time(), "seen_at": time.time()})
+            "room": room, "nickname": name, "avatar": chosen, "key": name.casefold(),
+            "secret": secret_hash(secret), "joined_at": time.time(), "seen_at": time.time()})
         await self._manager.up_sert(ROOM_ITEM, room, {"host": person, "locked": False, "task": "", "tasks": 0,
                                                       "active_at": time.time()})
         return await self._answer(room, person)
 
-    async def join(self, room: str, secret: str, nickname: str) -> dict:
+    async def join(self, room: str, secret: str, nickname: str, avatar: str = "") -> dict:
         record = await self._room(room)
         name = _nickname(nickname)
+        chosen = _avatar(avatar)
         _secret(secret)
         self._limits.check("action")
         self._limits.count("action")
@@ -89,8 +92,8 @@ class PlanningPoker(IPlanningPoker):
         if holder is not None and holder is not mine:
             raise Forbidden("Ce pseudo est déjà pris dans cette salle.")
         if mine is not None:
-            await self._manager.up_sert(PARTICIPANT_ITEM, mine["_id"], {"nickname": name, "key": name.casefold(),
-                                                                        "seen_at": time.time()})
+            await self._manager.up_sert(PARTICIPANT_ITEM, mine["_id"], {
+                "nickname": name, "key": name.casefold(), "seen_at": time.time(), **({"avatar": chosen} if chosen else {})})
             await self._succeed(room, record)
             return await self._touched(room, mine["_id"])
         if record.get("locked"):
@@ -99,8 +102,8 @@ class PlanningPoker(IPlanningPoker):
             raise InvalidRequest(f"La salle est pleine ({self._max_participants} participants).")
         person = new_id()
         await self._manager.up_sert(PARTICIPANT_ITEM, person, {
-            "room": room, "nickname": name, "key": name.casefold(), "secret": secret_hash(secret),
-            "joined_at": time.time(), "seen_at": time.time()})
+            "room": room, "nickname": name, "avatar": chosen, "key": name.casefold(),
+            "secret": secret_hash(secret), "joined_at": time.time(), "seen_at": time.time()})
         return await self._touched(room, person)
 
     async def state(self, room: str, secret: str) -> dict:
@@ -113,6 +116,14 @@ class PlanningPoker(IPlanningPoker):
     async def ping(self, room: str, secret: str) -> dict:
         record, person = await self._caller(room, secret)
         return await self._answer(room, person["_id"])
+
+    async def set_avatar(self, room: str, secret: str, avatar: str) -> dict:
+        record, person = await self._caller(room, secret)
+        chosen = avatar_of(avatar)
+        if chosen is None:
+            raise InvalidRequest(_BAD_AVATAR)
+        await self._manager.up_sert(PARTICIPANT_ITEM, person["_id"], {"avatar": chosen})
+        return await self._touched(room, person["_id"])
 
     async def vote(self, room: str, secret: str, card: str) -> dict:
         record, person = await self._caller(room, secret)
@@ -275,6 +286,16 @@ def _nickname(text: str) -> str:
     if name is None:
         raise InvalidRequest("Pseudo invalide : 1 à 24 lettres, chiffres, espaces ou . ' - _")
     return name
+
+
+def _avatar(text: str) -> str:
+    """the avatar chosen, "" when none; refused when not one of the list"""
+    if not text:
+        return ""
+    chosen = avatar_of(text)
+    if chosen is None:
+        raise InvalidRequest(_BAD_AVATAR)
+    return chosen
 
 
 def _secret(secret: str) -> None:

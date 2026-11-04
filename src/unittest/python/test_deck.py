@@ -1,6 +1,6 @@
 import unittest
 
-from ycappuccino.planningpoker.deck import DECK, format_average, is_room_id, is_secret, nickname, results, task_number
+from ycappuccino.planningpoker.deck import AVATARS, DECK, avatar, default_avatar, format_average, is_room_id, is_secret, nickname, results, task_number
 
 
 class TestResults(unittest.TestCase):
@@ -25,6 +25,21 @@ class TestResults(unittest.TestCase):
         self.assertEqual(DECK, ("0", "½", "1", "2", "3", "5", "8", "13", "21", "?", "☕"))
         self.assertEqual(format_average(5.25), "5,2")
         self.assertEqual(format_average(8.0), "8")
+
+
+class TestAvatars(unittest.TestCase):
+    def test_only_the_list_is_valid(self):
+        self.assertEqual(len(AVATARS), len(set(AVATARS)))
+        self.assertTrue(16 <= len(AVATARS) <= 24)
+        self.assertEqual(avatar(AVATARS[0]), AVATARS[0])
+        for bad in ("", "x", "🇫🇷", "🦊🦊", None, 3):
+            self.assertIsNone(avatar(bad))
+
+    def test_the_default_is_stable_and_from_the_list(self):
+        self.assertEqual(default_avatar("Alice"), default_avatar(" alice".strip().upper()))
+        self.assertIn(default_avatar("Alice"), AVATARS)
+        self.assertEqual(default_avatar("Alice"), default_avatar("Alice"))
+        self.assertGreater(len({default_avatar(name) for name in ("Alice", "Bob", "Chloé", "Dan", "Eve", "Fay")}), 1)
 
 
 class TestInputs(unittest.TestCase):

@@ -24,13 +24,18 @@ class IPlanningPoker(YCappuccinoComponent, ABC):
 
     @abstractmethod
     @rpc_method(summary="create a room, its creator joining as host", secure=False)
-    async def create_room(self, secret: str, nickname: str) -> dict:
-        """a new room (random, unguessable id) hosted by this browser"""
+    async def create_room(self, secret: str, nickname: str, avatar: str = "") -> dict:
+        """a new room (random, unguessable id) hosted by this browser; avatar: one of deck.AVATARS (\"\": by nickname)"""
 
     @abstractmethod
     @rpc_method(summary="join a room by nickname", secure=False)
-    async def join(self, room: str, secret: str, nickname: str) -> dict:
+    async def join(self, room: str, secret: str, nickname: str, avatar: str = "") -> dict:
         """the nickname bound to this secret in the room; refused when another secret holds it"""
+
+    @abstractmethod
+    @rpc_method(summary="change this participant's avatar", secure=False)
+    async def set_avatar(self, room: str, secret: str, avatar: str) -> dict:
+        """one of deck.AVATARS, the caller's own only"""
 
     @abstractmethod
     @rpc_method(summary="a room's state", secure=False)

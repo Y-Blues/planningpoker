@@ -13,6 +13,7 @@ from ycappuccino.api.endpoints_storage import Forbidden, InvalidRequest, NotFoun
 from ycappuccino.api.http_server import VISITOR_ADDRESS
 from ycappuccino.planningpoker.api import (NOT_FOUND, PARTICIPANT_ITEM, ROOM_ITEM, TASK_ITEM, VOTE_ITEM, IPlanningPoker,
                                            room_topic)
+from ycappuccino.planningpoker.deck import AVATARS, default_avatar
 from ycappuccino.planningpoker.rate_limits import RateLimits
 from ycappuccino.planningpoker.room_events import RoomEvents
 from ycappuccino.planningpoker.rooms import PlanningPoker
@@ -52,7 +53,7 @@ class TestRoomIds(Room):
 
     async def test_rooms_cannot_be_listed(self):
         self.assertEqual(set(get_rpc_methods(IPlanningPoker)), {
-            "create_room", "join", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
+            "create_room", "join", "set_avatar", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
         descriptor = yaml.safe_load(resources.files("ycappuccino.planningpoker").joinpath("ycappuccino_app.yml")
                                     .read_text(encoding="utf-8"))
         bundles = [bundle for part in descriptor["parts"].values() for bundle in part.get("bundles", [])]
@@ -116,6 +117,33 @@ class TestIdentity(Room):
         self.assertEqual(len((await self.poker.join(room, self.bob, "Bob"))["participants"]), 2)
         await self.poker.lock(room, self.alice, False)
         await self.poker.join(room, self.chloe, "Chloé")
+
+
+class TestAvatars(Room):
+
+    async def test_default_chosen_and_state(self):
+        answer = await self.poker.create_room(self.alice, "Alice")
+        self.assertEqual(answer["participants"][0]["avatar"], default_avatar("Alice"))
+        room = answer["room"]
+        joined = await self.poker.join(room, self.bob, "Bob", AVATARS[2])
+        self.assertEqual([p["avatar"] for p in joined["participants"]], [default_avatar("Alice"), AVATARS[2]])
+        again = await self.poker.join(room, self.bob, "Bob")  # rejoining without one keeps it
+        self.assertEqual(again["participants"][1]["avatar"], AVATARS[2])
+        created = await self.poker.create_room(self.chloe, "Chloé", AVATARS[7])
+        self.assertEqual(created["participants"][0]["avatar"], AVATARS[7])
+
+    async def test_set_avatar_is_own_only_and_validated(self):
+        room = await self.room()
+        answer = await self.poker.set_avatar(room, self.bob, AVATARS[4])
+        self.assertEqual([p["avatar"] for p in answer["participants"]], [default_avatar("Alice"), AVATARS[4]])
+        self.assertEqual(self.publisher.published[-1][1]["participants"][1]["avatar"], AVATARS[4])
+        for bad in ("", "x", "🇫🇷"):
+            with self.assertRaisesRegex(InvalidRequest, "Avatar inconnu"):
+                await self.poker.set_avatar(room, self.bob, bad)
+        with self.assertRaisesRegex(InvalidRequest, "Avatar inconnu"):
+            await self.poker.join(room, self.chloe, "Chloé", "x")
+        with self.assertRaises(Forbidden):
+            await self.poker.set_avatar(room, self.chloe, AVATARS[0])  # never joined: nobody else's to change
 
 
 class TestVoting(Room):

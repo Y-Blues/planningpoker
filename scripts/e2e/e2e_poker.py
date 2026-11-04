@@ -104,6 +104,14 @@ def run(playwright):
         check("robots.txt disallows everything", "Disallow: /" in response.read().decode())
     alice.screenshot(path=os.path.join(SHOTS, "1_welcome.png"), full_page=True)
 
+    check("footer credits iPOPO and YCappuccino", alice.locator(".pp-footer a[target=_blank][rel=noopener]").count() == 2
+          and "Propulsé par iPOPO et YCappuccino" in alice.inner_text(".pp-footer"))
+    alice.click(".pp-welcome .pp-avatar-choice >> nth=2")
+    alice.wait_for_selector(".pp-welcome .pp-avatar-choice[aria-pressed=true]", timeout=T)
+    check("an avatar is selected on the join form", alice.locator(".pp-welcome .pp-avatar-choice[aria-pressed=true]").count() == 1)
+    alice.screenshot(path=os.path.join(SHOTS, "1b_avatar_picker.png"), full_page=True)
+    avatar = alice.inner_text(".pp-welcome .pp-avatar-choice >> nth=2")
+
     enter(alice, "Alice")
     alice.wait_for_selector(".pp-room:not([hidden])", timeout=T)
     room = alice.evaluate("location.hash").lstrip("#")
@@ -114,7 +122,7 @@ def run(playwright):
     check("the room's link is copied", alice.evaluate("navigator.clipboard.readText()") == BASE + "#" + room)
     alice.fill("#pp-task-number", "101")
     alice.click(".pp-task-form button")
-    alice.wait_for_selector("text=Tâche n° 101", timeout=T)
+    alice.wait_for_selector("text=Tâche 101", timeout=T)
 
     link = BASE + "#" + room
     bob = open_page(browser, link)
@@ -126,6 +134,16 @@ def run(playwright):
     chloe.wait_for_selector(".pp-room:not([hidden])", timeout=T)
     alice.wait_for_function("document.querySelectorAll('.pp-seat').length === 3", timeout=T)
     check("three players at the table, live", alice.locator(".pp-seat").count() == 3)
+
+    check("everyone sees Alice's chosen avatar", bob.locator(".pp-seat .pp-avatar", has_text=avatar).count() == 1)
+    bob.click("button.pp-avatar")
+    bob.click(".pp-picker-room .pp-avatar-choice >> nth=7")
+    new = bob.inner_text(".pp-picker-room .pp-avatar-choice >> nth=7")
+    alice.wait_for_function("a => [...document.querySelectorAll('.pp-seat .pp-avatar')].some(e => e.textContent === a)", arg=new, timeout=T)
+    check("Bob's new avatar shows to the others live", True)
+    bob.reload()
+    bob.wait_for_selector(".pp-room:not([hidden])", timeout=T)
+    check("a reloaded browser keeps its avatar", bob.locator("button.pp-avatar", has_text=new).count() == 1)
 
     mallory = open_page(browser, link)
     mallory.wait_for_selector("text=Rejoindre la salle", timeout=T)
@@ -166,7 +184,7 @@ def run(playwright):
     check("the host sets the final estimate", True)
     alice.fill("#pp-task-number", "102")
     alice.click(".pp-task-form button")
-    bob.wait_for_selector("text=Tâche n° 102", timeout=T)
+    bob.wait_for_selector("text=Tâche 102", timeout=T)
     check("recap of finished tasks", "n° 101" in bob.inner_text(".pp-recap") and "13" in bob.inner_text(".pp-recap"),
           bob.inner_text(".pp-recap").replace("\n", " | "))
 
