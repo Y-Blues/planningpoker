@@ -1,16 +1,16 @@
 # The GitHub release of each framework repository (owner Y-Blues, private) the image installs: fetch_wheels.py downloads
 # its wheel at build time. TODO before the first deploy: the `poker` branches of api, core, remote, pubsub, client and
 # build released, and their tags bumped here.
-api v0.7.35
-core v0.7.15
+api v0.7.36
+core v0.7.16
 storage v0.7.19
 endpoints_storage v0.7.24
 endpoints_service v0.1.1
-remote v0.7.19
+remote v0.7.20
 hosts v0.6.9
-pubsub v0.7.1
-permissions_app v0.7.35
-client v0.6.6
-ui v0.5.48
-ui_web v0.6.45
-build v0.6.16
+pubsub v0.7.2
+permissions_app v0.7.36
+client v0.6.7
+ui v0.5.50
+ui_web v0.6.47
+build v0.6.17
