@@ -2,6 +2,7 @@
 nickname refused, hidden votes, reveal (average, nearest card, min, max), revote, next task, recap, remove, lock, an
 unknown room, an absent host's handover; the first load's size measured; screenshots.
     PYTHON=... uv run --no-project --with playwright python scripts/e2e/e2e_poker.py <screenshot dir>
+Runs with prefers-reduced-motion (POKER_E2E_MOTION=1: with the animations).
 Starts and stops its own server (POKER_E2E_PORT, default 8197), or tests POKER_E2E_BASE (a deployment, its prefix
 included: http://localhost:8096/planningpoker/)."""
 
@@ -21,6 +22,8 @@ PORT = int(os.environ.get("POKER_E2E_PORT", "8197"))
 BASE = os.environ.get("POKER_E2E_BASE") or f"http://localhost:{PORT}/"
 BOOT, T = 180000, 20000
 ABSENT = 25  # the server's host_absent_seconds for the run (the page pings every 15 s)
+# the page's animations off (prefers-reduced-motion), so the screenshots show settled pages; POKER_E2E_MOTION=1 keeps them
+MOTION = "no-preference" if os.environ.get("POKER_E2E_MOTION") else "reduce"
 results = []
 
 
@@ -44,7 +47,7 @@ def start_server():
 
 
 def open_page(browser, url, **options):
-    context = browser.new_context(locale="fr-FR", **options)
+    context = browser.new_context(locale="fr-FR", reduced_motion=MOTION, **options)
     page = context.new_page()
     page.on("console", lambda message: message.type == "error" and print("  console:", message.text[:200]))
     page.goto(url)
@@ -78,7 +81,7 @@ def run(playwright):
     browser = playwright.chromium.launch()
     # first load, measured: everything the page downloads until it is drawn
     sizes = {"own": 0, "cdn": 0}
-    context = browser.new_context(locale="fr-FR", permissions=["clipboard-read", "clipboard-write"])
+    context = browser.new_context(locale="fr-FR", reduced_motion=MOTION, permissions=["clipboard-read", "clipboard-write"])
     alice = context.new_page()
     alice.on("console", lambda message: message.type == "error" and print("  console:", message.text[:300]))
 
