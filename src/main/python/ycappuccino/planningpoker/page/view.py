@@ -69,11 +69,28 @@ def distribution(state: dict) -> list:
     return [(card, counts[card]) for card in DECK if card in counts]
 
 
+KIND_LABELS = {"epic": "Epic", "story": "Story", "subtask": "Sous-tâche", "task": "Tâche"}
+
+
+def flatten(tree: list, depth: int = 0) -> list:
+    """a tree's nodes in reading order, each with its depth: [(depth, node)]"""
+    rows = []
+    for node in tree:
+        rows.append((depth, node))
+        rows.extend(flatten(node.get("children") or [], depth + 1))
+    return rows
+
+
 def recap(state: dict) -> tuple[list, str]:
-    """the finished tasks (number, final) and the total of their numeric finals"""
-    tasks = state.get("tasks") or []
-    total = sum(value(task.get("final") or "") or 0 for task in tasks)
-    return [(task.get("number") or "", task.get("final") or "–") for task in tasks], format_average(total)
+    """the recap tree as rows (depth, number, title, kind, final, sub: the descendants' total, "" for a leaf) and the
+    total of every numeric final"""
+    rows, total = [], 0.0
+    for depth, node in flatten(state.get("recap") or []):
+        total += value(node.get("final") or "") or 0
+        rows.append({"depth": depth, "number": node.get("number") or "", "title": node.get("title") or "",
+                     "kind": node.get("kind") or "", "final": node.get("final") or "–",
+                     "sub": format_average(node["total"]) if node.get("children") else ""})
+    return rows, format_average(total)
 
 
 def moments(before: dict | None, state: dict, me: str | None, mine: str) -> tuple[dict, dict]:

@@ -74,8 +74,15 @@ class IPlanningPoker(YCappuccinoComponent, ABC):
 
     @abstractmethod
     @rpc_method(summary="start the next task by its number (host)", secure=False)
-    async def next_task(self, room: str, secret: str, number: str) -> dict:
-        """a new task to vote on"""
+    async def next_task(self, room: str, secret: str, number: str, parent: str = "") -> dict:
+        """a new task to vote on; parent: the number of the epic or story it belongs to (optional); a queued (imported)
+        task of that number is the one played"""
+
+    @abstractmethod
+    @rpc_method(summary="queue tickets imported from a tracker (host)", secure=False)
+    async def import_tasks(self, room: str, secret: str, items: list) -> dict:
+        """items: [{key, title, kind (epic|story|subtask|task), parent}], rate-limited and capped; a ticket already in
+        the room has its title, kind and parent updated, its votes and final kept; new ones wait in the queue"""
 
     @abstractmethod
     @rpc_method(summary="remove a participant (host)", secure=False)

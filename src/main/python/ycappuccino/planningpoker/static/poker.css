@@ -327,10 +327,49 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
 .pp-recap-title { margin: 0 0 10px; font-size: 17px; font-weight: 800; }
 .pp-recap-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .pp-recap-table th, .pp-recap-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--pp-line); }
-.pp-recap-table th:last-child, .pp-recap-table td:last-child { text-align: right; }
+.pp-recap-table th:not(:first-child), .pp-recap-table td:not(:first-child) { text-align: right; }
 .pp-recap-table th { font-size: 12px; color: var(--pp-muted); font-weight: 650; text-transform: uppercase; letter-spacing: .5px; }
-.pp-recap-table tbody td:first-child { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; }
-.pp-recap-table tbody td:last-child { font-weight: 750; }
+.pp-key { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; }
+.pp-recap-table tbody td:nth-child(2) { font-weight: 750; }
+.pp-recap-table .pp-sub { color: var(--pp-muted); font-weight: 650; }
+.pp-recap-table tr.is-parent > td { background: var(--pp-surface-2); }
+.pp-recap-table tr.is-parent .pp-key { font-weight: 800; }
+.pp-recap-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.pp-depth-1 .pp-recap-task { padding-left: 22px; }
+.pp-depth-2 .pp-recap-task { padding-left: 44px; }
+.pp-depth-3 .pp-recap-task { padding-left: 66px; }
+.pp-depth-4 .pp-recap-task { padding-left: 88px; }
+.pp-title-text { color: var(--pp-muted); font-size: 14px; overflow-wrap: anywhere; min-width: 0; }
+.pp-kind { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 2px 7px; border-radius: 999px;
+  white-space: nowrap; background: var(--pp-surface-2); color: var(--pp-muted); border: 1px solid var(--pp-line); }
+.pp-kind.is-epic { background: var(--pp-accent-soft); color: var(--pp-accent); border-color: transparent; }
+.pp-kind.is-story { background: color-mix(in srgb, var(--pp-success) 20%, var(--pp-surface)); color: var(--pp-text); border-color: transparent; }
+
+/* ------------------------------------------------------------------ Jira import: confirmation, bookmarklet help, queue */
+.pp-import { margin: -6px 0 16px; display: grid; gap: 10px; }
+.pp-import[hidden] { display: none; }
+.pp-import-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 12px 14px; border-radius: 14px;
+  background: var(--pp-accent-soft); border: 1px solid var(--pp-accent); animation: pp-pop .25s var(--pp-ease-out); }
+.pp-import-confirm[hidden] { display: none; }
+.pp-import-text { margin: 0 auto 0 0; font-weight: 700; }
+.pp-import-help { font-size: 14px; color: var(--pp-muted); }
+.pp-import-help summary { cursor: pointer; font-weight: 650; padding: 6px 0; }
+.pp-import-steps { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 6px; }
+.pp-bookmarklet { display: inline-block; padding: 4px 11px; border-radius: 999px; font-weight: 700; text-decoration: none; cursor: grab;
+  background: var(--pp-accent); color: var(--pp-accent-text); }
+.pp-bookmarklet:focus-visible, .pp-queue-item:focus-visible { outline: 3px solid var(--pp-gold); outline-offset: 2px; }
+.pp-queue { padding: 16px 18px; margin-bottom: 18px; background: var(--pp-surface); border: 1px solid var(--pp-line);
+  border-radius: 18px; box-shadow: var(--pp-shadow); }
+.pp-queue[hidden] { display: none; }
+.pp-tree, .pp-tree ul { list-style: none; margin: 0; padding: 0; }
+.pp-tree ul { margin-left: 14px; padding-left: 10px; border-left: 2px solid var(--pp-line); }
+.pp-queue-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; width: 100%; text-align: left; cursor: pointer;
+  padding: 7px 8px; border: 0; border-radius: 10px; background: transparent; color: var(--pp-text); font: inherit;
+  transition: background .15s; }
+.pp-queue-item:hover:not([disabled]) { background: var(--pp-accent-soft); }
+.pp-queue-item[disabled] { opacity: .55; cursor: not-allowed; }
+.pp-queue .pp-import-text { margin: 0 0 8px; font-size: 14px; font-weight: 500; color: var(--pp-muted); }
+
 .pp-recap-table tbody tr { transition: background .15s; }
 .pp-recap-table tbody tr:hover { background: var(--pp-surface-2); }
 .pp-recap-table tfoot td { font-weight: 800; font-size: 17px; border-bottom: 0; padding-top: 12px; }
@@ -363,7 +402,13 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
   .pp-deck-card { width: 46px; height: 68px; font-size: 19px; border-radius: 8px; }
   .pp-deck-card::before, .pp-deck-card::after { font-size: 8.5px; top: 4px; left: 4px; }
   .pp-deck-card::after { top: auto; left: auto; bottom: 4px; right: 4px; }
-  .pp-results, .pp-recap { padding: 16px; border-radius: 16px; }
+  .pp-results, .pp-recap, .pp-queue { padding: 16px; border-radius: 16px; }
+  .pp-input-small { width: 100px; }
+  .pp-depth-1 .pp-recap-task { padding-left: 12px; }
+  .pp-depth-2 .pp-recap-task { padding-left: 24px; }
+  .pp-depth-3 .pp-recap-task { padding-left: 36px; }
+  .pp-depth-4 .pp-recap-task { padding-left: 48px; }
+  .pp-recap-table th, .pp-recap-table td { padding: 8px 5px; }
   .pp-stat:nth-child(-n+2) dd { font-size: 32px; }
   .pp-stat dd { font-size: 20px; }
   .pp-stat { padding: 10px 11px; }

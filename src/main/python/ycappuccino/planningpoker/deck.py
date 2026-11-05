@@ -60,6 +60,25 @@ def task_number(text: str) -> str | None:
     return cleaned if _TASK_NUMBER.fullmatch(cleaned) else None
 
 
+KINDS = ("epic", "story", "subtask", "task")
+TITLE_MAX = 200
+IMPORT_MAX = 200
+
+
+def ticket(item) -> dict | None:
+    """an imported ticket cleaned -- {number, title, kind, parent} -- None when its key is invalid; a bad kind is a
+    "task", a bad parent none, a title cut to TITLE_MAX"""
+    if not isinstance(item, dict):
+        return None
+    number = task_number(item.get("key") if isinstance(item.get("key"), str) else item.get("number"))
+    if number is None:
+        return None
+    kind = item.get("kind") if item.get("kind") in KINDS else "task"
+    parent = task_number(item.get("parent")) if isinstance(item.get("parent"), str) else None
+    title = " ".join(str(item.get("title") or "").split())[:TITLE_MAX]
+    return {"number": number, "title": title, "kind": kind, "parent": parent if parent != number else None}
+
+
 def is_secret(text: str) -> bool:
     return isinstance(text, str) and bool(_SECRET.fullmatch(text))
 

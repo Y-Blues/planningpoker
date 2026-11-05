@@ -2,7 +2,7 @@
 call, permissions' Throttle: past `max` counted in `window` seconds, refused until the window slides. Configured:
 
     RateLimits:
-      limits: {create: [10, 3600], join_failure: [30, 600], action: [300, 60]}
+      limits: {create: [10, 3600], join_failure: [30, 600], action: [300, 60], import: [20, 3600]}
 
 Counters live in this process only, like PasswordLogin's: a restart forgets them."""
 
@@ -13,7 +13,7 @@ from ycappuccino.permissions.throttle import Throttle
 from ycappuccino.planningpoker.api import IRateLimits
 
 TOO_MANY = "Trop de tentatives, réessayez plus tard."
-_DEFAULTS = {"create": [10, 3600], "join_failure": [30, 600], "action": [300, 60]}
+_DEFAULTS = {"create": [10, 3600], "join_failure": [30, 600], "action": [300, 60], "import": [20, 3600]}
 _KEPT = 10000  # throttles beyond it: the idle ones dropped
 
 

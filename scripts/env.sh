@@ -2,7 +2,7 @@
 # imported before anything installed
 _root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 _path="$_root/planningpoker/src/main/python"
-for _repo in api core client remote pubsub build; do
+for _repo in api core client remote pubsub build ui ui_web; do
   [ -d "$_root/$_repo-poker" ] && _path="$_path:$_root/$_repo-poker/src/main/python"
 done
 export PYTHONPATH="$_path${PYTHONPATH:+:$PYTHONPATH}"

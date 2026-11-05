@@ -53,7 +53,7 @@ class TestRoomIds(Room):
 
     async def test_rooms_cannot_be_listed(self):
         self.assertEqual(set(get_rpc_methods(IPlanningPoker)), {
-            "create_room", "join", "rename", "set_avatar", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
+            "create_room", "join", "rename", "set_avatar", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "import_tasks", "remove", "lock"})
         descriptor = yaml.safe_load(resources.files("ycappuccino.planningpoker").joinpath("ycappuccino_app.yml")
                                     .read_text(encoding="utf-8"))
         bundles = [bundle for part in descriptor["parts"].values() for bundle in part.get("bundles", [])]
@@ -196,7 +196,7 @@ class TestVoting(Room):
         state = await self.poker.reveal(room, self.alice)
         self.assertEqual([p["card"] for p in state["participants"]], ["3", "8"])
         self.assertEqual((state["results"]["average"], state["results"]["nearest"]), (5.5, "5"))
-        self.assertEqual(state["task"], {"id": state["task"]["id"], "number": "101", "revealed": True, "final": "5"})
+        self.assertEqual(state["task"], {"id": state["task"]["id"], "number": "101", "title": "", "revealed": True, "final": "5"})
         self.assertEqual(self.publisher.published[-1][1]["results"]["nearest"], "5")  # everyone told
 
     async def test_a_card_changes_after_the_reveal_and_the_results_follow(self):
@@ -265,6 +265,123 @@ class TestVoting(Room):
         self.assertEqual([p["nickname"] for p in state["participants"]], ["Alice"])
         self.assertEqual(self.manager.of(VOTE_ITEM), [])
         self.assertIsNone((await self.poker.state(room, self.bob))["me"])
+
+
+def ticket(key, title="", kind="task", parent=None):
+    return {"key": key, "title": title, "kind": kind, "parent": parent}
+
+
+class TestImport(Room):
+
+    def setUp(self):
+        super().setUp()
+        self.poker = PlanningPoker(self.manager, NoLimits(), max_participants=4, max_tasks=20)
+
+    async def imported(self):
+        room = await self.room()
+        return room, await self.poker.import_tasks(room, self.alice, [
+            ticket("KP-1", "Paiement", "epic"), ticket("KP-2", "Carte", "story", "KP-1"),
+            ticket("KP-3", "Mock", "subtask", "KP-2"), ticket("KP-4", "Facture", "story", "KP-1"),
+            ticket("KP-10", "Autre", "story", "KP-1")])
+
+    async def test_imported_tickets_queue_as_a_tree_and_only_the_host_imports(self):
+        room, state = await self.imported()
+        (epic,) = state["queue"]
+        self.assertEqual((epic["number"], epic["title"], epic["kind"]), ("KP-1", "Paiement", "epic"))
+        self.assertEqual([c["number"] for c in epic["children"]], ["KP-2", "KP-4", "KP-10"])  # natural order
+        self.assertEqual(epic["children"][0]["children"][0]["number"], "KP-3")
+        self.assertIsNone(state["task"])
+        self.assertEqual(state["tasks"], [])
+        with self.assertRaises(Forbidden):
+            await self.poker.import_tasks(room, self.bob, [ticket("KP-9")])
+        with self.assertRaises(Forbidden):
+            await self.poker.import_tasks(room, secret(), [ticket("KP-9")])
+
+    async def test_import_is_validated_and_capped(self):
+        room = await self.room()
+        poker = PlanningPoker(self.manager, NoLimits(), max_import=3, max_tasks=5)
+        for wrong in (None, "KP-1", {"key": "KP-1"}, [ticket("A")] * 4, [], [{"key": "KP 1"}, 3, None]):
+            with self.assertRaises(InvalidRequest):
+                await poker.import_tasks(room, self.alice, wrong)
+        state = await poker.import_tasks(room, self.alice, [
+            {"key": "KP-1", "title": "x" * 500, "kind": "weird", "parent": "KP-1"}, {"key": "bad key"}, "junk"])
+        (only,) = state["queue"]  # the invalid ones skipped; a bad kind a task, a self parent none, a title cut
+        self.assertEqual((only["number"], only["kind"], len(only["title"])), ("KP-1", "task", 200))
+        await poker.import_tasks(room, self.alice, [ticket(f"T-{n}") for n in range(3)])
+        with self.assertRaisesRegex(InvalidRequest, "Limite"):   # 4 + 3 > max_tasks 5
+            await poker.import_tasks(room, self.alice, [ticket(f"U-{n}") for n in range(3)])
+        await poker.import_tasks(room, self.alice, [ticket("T-0", "again"), ticket("T-1"), ticket("U-1")])  # 5: allowed
+
+    async def test_import_is_rate_limited(self):
+        room = await self.room()
+        limits = mock.Mock()
+        poker = PlanningPoker(self.manager, limits)
+        await poker.import_tasks(room, self.alice, [ticket("KP-1")])
+        limits.check.assert_any_call("import")
+        limits.count.assert_any_call("import")
+        limits.check.side_effect = InvalidRequest("Trop")
+        with self.assertRaises(InvalidRequest):
+            await poker.import_tasks(room, self.alice, [ticket("KP-2")])
+
+    async def test_playing_a_queued_ticket_reuses_its_record_and_a_reimport_keeps_finals(self):
+        room, _ = await self.imported()
+        state = await self.poker.next_task(room, self.alice, "KP-2")
+        self.assertEqual((state["task"]["number"], state["task"]["title"]), ("KP-2", "Carte"))
+        self.assertEqual(len(self.manager.of(TASK_ITEM)), 5)  # no second record
+        queued = {n["number"] for n in state["queue"][0]["children"]}
+        self.assertEqual(queued, {"KP-4", "KP-10"})  # KP-2 left the queue (its subtask is then a root)
+        self.assertEqual([n["number"] for n in state["queue"]], ["KP-1", "KP-3"])
+        await self.poker.vote(room, self.alice, "5")
+        await self.poker.reveal(room, self.alice)
+        state = await self.poker.import_tasks(room, self.alice, [ticket("KP-2", "Carte bancaire", "story", "KP-1"),
+                                                                 ticket("KP-5", "Neuf", "subtask", "KP-4")])
+        self.assertEqual(state["task"]["title"], "Carte bancaire")
+        self.assertEqual(state["task"]["final"], "5")
+        self.assertEqual(len(self.manager.of(VOTE_ITEM)), 1)
+        self.assertEqual(len(self.manager.of(TASK_ITEM)), 6)
+
+    async def test_an_unrevealed_imported_task_goes_back_to_the_queue(self):
+        room, _ = await self.imported()
+        await self.poker.next_task(room, self.alice, "KP-2")
+        await self.poker.vote(room, self.alice, "3")
+        state = await self.poker.next_task(room, self.alice, "KP-4")
+        self.assertEqual(self.manager.of(VOTE_ITEM), [])
+        numbers = {n["number"] for n in state["queue"][0]["children"]}
+        self.assertIn("KP-2", numbers)
+        self.assertEqual(len(self.manager.of(TASK_ITEM)), 5)
+
+    async def test_the_recap_is_a_tree_with_the_totals_of_the_descendants(self):
+        room, _ = await self.imported()
+        for key, card in (("KP-2", "5"), ("KP-3", "3"), ("KP-4", "8"), ("KP-1", "?")):
+            await self.poker.next_task(room, self.alice, key)
+            await self.poker.vote(room, self.alice, card)
+            state = await self.poker.reveal(room, self.alice)
+        (epic,) = state["recap"]
+        self.assertEqual((epic["number"], epic["final"], epic["total"]), ("KP-1", "", 16))  # a ? pick has no final; own final aside
+        story = epic["children"][0]
+        self.assertEqual((story["number"], story["final"], story["total"]), ("KP-2", "5", 3))
+        self.assertEqual(story["children"][0]["number"], "KP-3")
+        self.assertEqual(epic["children"][1]["total"], 0)
+        self.assertNotIn("KP-10", str(state["recap"]))   # never played: not in the recap
+
+    async def test_a_manual_task_joins_the_hierarchy_by_its_parent(self):
+        room = await self.room()
+        for number, parent, card in (("7", "EPIC-1", "3"), ("8", "EPIC-1", "5"), ("9", "", "2")):
+            await self.poker.next_task(room, self.alice, number, parent)
+            await self.poker.vote(room, self.alice, card)
+            state = await self.poker.reveal(room, self.alice)
+        by = {node["number"]: node for node in state["recap"]}
+        self.assertEqual(set(by), {"EPIC-1", "9"})   # a parent never played still groups its children
+        self.assertEqual((by["EPIC-1"]["final"], by["EPIC-1"]["total"]), ("", 8))
+        self.assertEqual([c["number"] for c in by["EPIC-1"]["children"]], ["7", "8"])
+        for wrong in ("KP 1", "7"):
+            with self.assertRaisesRegex(InvalidRequest, "Parent"):
+                await self.poker.next_task(room, self.alice, "7", wrong)
+
+    async def test_a_loop_of_parents_does_not_hang_the_state(self):
+        room = await self.room()
+        state = await self.poker.import_tasks(room, self.alice, [ticket("A-1", parent="A-2"), ticket("A-2", parent="A-1")])
+        self.assertEqual(len(state["queue"]), 2)   # both roots
 
 
 class TestExpiry(Room):

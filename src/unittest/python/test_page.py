@@ -22,6 +22,8 @@ def state(me_votes=False, revealed=False, host="a", task=True, people=("a", "b")
         "results": {"votes": 2, "counts": {"3": 1, "8": 1}, "consensus": False, "average": 5.5, "nearest": "8",
                     "min": "3", "max": "8"} if revealed else None,
         "tasks": [{"number": "12", "final": "8"}] if revealed else [],
+        "recap": [{"number": "12", "title": "", "kind": "", "final": "8", "total": 0, "children": []}] if revealed else [],
+        "queue": [],
     }
 
 
@@ -174,7 +176,7 @@ class TestAvatarAndFooter(Page):
 
     async def test_the_footer_credits_ipopo_and_ycappuccino(self):
         await self.open()
-        links = self.find("a")
+        links = [link for link in self.find("a") if "target" in link.attrs]
         self.assertEqual([link.text for link in links], ["iPOPO", "YCappuccino"])
         for link in links:
             self.assertEqual(link.attrs["target"], "_blank")
@@ -256,7 +258,7 @@ class TestView(unittest.TestCase):
     def test_status_and_recap(self):
         self.assertEqual(view.status(state(task=False), "a"), "Choisissez la première tâche.")
         self.assertEqual(view.status(state(me_votes=True), "b"), "2 votes sur 2")
-        self.assertEqual(view.recap(state(revealed=True)), ([("12", "8")], "8"))
+        self.assertEqual(view.recap(state(revealed=True)), ([{"depth": 0, "number": "12", "title": "", "kind": "", "final": "8", "sub": ""}], "8"))
         self.assertEqual(view.results(state(revealed=True))[0], ("Moyenne", "5,5"))
 
     def test_moments_play_once(self):
@@ -291,3 +293,101 @@ class TestMoments(Page):
         self.assertTrue(self.find(".pp-countdown"))
         await self.page.on_message(room_topic(ROOM), {**revealed, "stamp": 4, "task": {**revealed["task"], "final": "3"}})
         self.assertFalse(self.find(".pp-countdown"))
+
+
+TICKETS = {"type": "planningpoker:import", "items": [
+    {"key": "KP-1", "title": "Paiement", "kind": "epic", "parent": ""},
+    {"key": "KP-2", "title": "Carte", "kind": "story", "parent": "KP-1"}, {"key": "bad key"}]}
+JIRA = "https://acme.atlassian.net"
+
+
+class TestJiraImport(Page):
+
+    async def host(self, **changes):
+        return await self.open("/#" + ROOM, answer={**state(task=False, host="a"), **changes, "me": "a"})
+
+    async def test_it_tells_the_opener_it_is_ready_and_answers_hello(self):
+        await self.host()
+        self.assertEqual(self.dom.opener_messages, [{"type": "planningpoker:ready"}])
+        await self.dom.deliver_message(JIRA, {"type": "planningpoker:hello"})
+        self.assertEqual(len(self.dom.opener_messages), 2)
+        await self.dom.deliver_message("https://evil.example", {"type": "planningpoker:hello"})
+        self.assertEqual(len(self.dom.opener_messages), 2)
+
+    async def test_only_jira_cloud_origins_are_listened_to(self):
+        await self.host()
+        for origin in ("https://evil.example", "http://acme.atlassian.net", "https://acme.atlassian.net.evil.example",
+                       "https://atlassian.net", "https://a.b.atlassian.net", "null", ""):
+            await self.dom.deliver_message(origin, TICKETS)
+        self.assertIsNone(self.page._pending)
+        self.assertTrue(self.hidden("import_confirm"))
+        for wrong in (None, "x", {"type": "other"}, {"type": "planningpoker:import", "items": "KP-1"},
+                      {"type": "planningpoker:import", "items": [{"key": "bad key"}]}):
+            await self.dom.deliver_message(JIRA, wrong)
+        self.assertIsNone(self.page._pending)
+
+    async def test_received_tickets_wait_for_the_hosts_confirmation(self):
+        await self.host()
+        await self.dom.deliver_message(JIRA, TICKETS)
+        self.assertFalse(self.hidden("import_confirm"))
+        self.assertEqual(self.page._ui["import_text"].text, "2 tickets reçus de acme.atlassian.net")
+        self.assertEqual([c for c in self.poker.calls if c[0] == "import_tasks"], [])   # nothing sent yet
+        self.poker.answer = {**state(task=False, host="a"), "stamp": 2, "me": "a"}
+        confirm = [b for b in self.find("button") if b.text == "Importer"][0]
+        await self.dom.click(confirm)
+        name, args = self.poker.calls[-1]
+        self.assertEqual((name, args[:2]), ("import_tasks", (ROOM, self.page._secret)))
+        self.assertEqual([t["number"] for t in args[2]], ["KP-1", "KP-2"])
+        self.assertTrue(self.hidden("import_confirm"))
+
+    async def test_ignoring_drops_them_and_a_guest_never_sees_the_import(self):
+        await self.host()
+        await self.dom.deliver_message(JIRA, TICKETS)
+        await self.dom.click([b for b in self.find("button") if b.text == "Ignorer"][0])
+        self.assertIsNone(self.page._pending)
+        self.assertTrue(self.hidden("import_confirm"))
+        await self.open("/#" + ROOM, answer={**state(task=False, host="a"), "me": "b"})
+        await self.dom.deliver_message(JIRA, TICKETS)
+        self.assertTrue(self.hidden("import_confirm"))
+        self.assertTrue(self.hidden("import"))
+        self.assertTrue(self.hidden("queue"))
+
+    async def test_the_bookmarklet_link_carries_the_room_address_and_never_the_secret(self):
+        await self.host()
+        href = self.page._ui["bookmarklet"].attrs["href"]
+        self.assertTrue(href.startswith("javascript:"))
+        from urllib.parse import unquote
+        script = unquote(href)
+        self.assertIn(f'"/#{ROOM}"', script)
+        self.assertNotIn(self.page._secret, script)
+        self.assertNotIn("\n", script)
+        self.assertNotIn("__ROOM__", script)
+        self.assertNotIn("//", script.replace("https://", ""))
+
+    async def test_the_queue_is_a_tree_the_host_plays_from_and_the_recap_a_tree_with_totals(self):
+        queue = [{"number": "KP-1", "title": "Paiement", "kind": "epic", "children": [
+            {"number": "KP-2", "title": "Carte", "kind": "story", "children": []}]}]
+        await self.host(queue=queue)
+        self.assertFalse(self.hidden("queue"))
+        self.assertEqual(len(self.find(".pp-queue-item")), 2)
+        self.poker.answer = {**state(task=False, host="a"), "stamp": 2, "me": "a"}
+        await self.dom.click(self.find(".pp-queue-item")[1])
+        self.assertEqual(self.poker.calls[-1], ("next_task", (ROOM, self.page._secret, "KP-2")))
+        recap = [{"number": "KP-1", "title": "Paiement", "kind": "epic", "final": "", "total": 5, "children": [
+            {"number": "KP-2", "title": "Carte", "kind": "story", "final": "5", "total": 0, "children": []}]}]
+        await self.open("/#" + ROOM, answer={**state(revealed=True), "recap": recap, "me": "b"})
+        rows = [r for r in self.find("tr") if r.attrs.get("class", "").startswith("pp-depth")]
+        self.assertEqual([r.attrs["class"] for r in rows], ["pp-depth-0 is-parent", "pp-depth-1"])
+        self.assertEqual([td.text for td in self.find("td")][-3:], ["Total", "5", ""])
+        self.assertEqual(self.find(".pp-sub")[0].text, "5")
+        self.assertEqual(len(self.find(".pp-queue-item")), 0)   # a guest sees the recap only
+        await self.open("/#" + ROOM, answer={**state(me_votes=False), "queue": queue, "me": "a"})   # a vote in progress
+        self.assertTrue(all("disabled" in item.attrs for item in self.find(".pp-queue-item")))
+
+    async def test_a_hand_typed_task_may_name_its_parent(self):
+        await self.host()
+        self.poker.answer = {**state(host="a"), "stamp": 3, "me": "a"}
+        await self.dom.type_text(self.page._ui["task_input"], "KP-9")
+        await self.dom.type_text(self.page._ui["parent_input"], " KP-1 ")
+        await self.dom.click(self.page._ui["task_button"])
+        self.assertEqual(self.poker.calls[-1], ("next_task", (ROOM, self.page._secret, "KP-9", "KP-1")))

@@ -24,6 +24,7 @@ components:
   PlanningPoker:
     max_participants: ${poker.max_participants:30}
     max_tasks: ${poker.max_tasks:300}
+    max_import: ${poker.max_import:200}
     expiry_days: ${poker.expiry_days:90}
     host_absent_seconds: ${poker.host_absent_seconds:120}
   RateLimits:                  # per visitor address: [max, window seconds]
@@ -31,6 +32,7 @@ components:
       create: [10, 3600]
       join_failure: [30, 600]  # unknown rooms asked
       action: [300, 60]
+      import: [20, 3600]
   PolymorphicCascade:
     cascades:
       - {id: room-participants, item: poker_participant, by: room, of: poker_room}

@@ -13,7 +13,7 @@ from ycappuccino.ui_web.page import IWebPage
 
 from ycappuccino.planningpoker.api import NOT_FOUND, IPlanningPoker, room_topic
 from ycappuccino.planningpoker.deck import AVATARS, DECK, NICKNAME_MAX, is_room_id
-from ycappuccino.planningpoker.page import browser, view
+from ycappuccino.planningpoker.page import browser, jira, view
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._before: Optional[dict] = None  # the last drawing's snapshot (view.moments)
         self._moments: dict = {}  # what the current drawing animates
         self._drawn: Optional[dict] = None  # the state drawn last (its stamp aside)
+        self._pending: Optional[tuple[str, list]] = None  # (Jira site, tickets) received, waiting for the host's OK
         self._since = 0.0  # when the current moments started (a redraw resumes them where they are)
 
     async def start(self) -> None:
@@ -62,6 +63,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._build(self._page.navigator().mount)
         self._dom.on_escape(self.close_profile)
         self._dom.on_navigate(lambda _url: self.open_room(self._hash()))
+        self._dom.on_window_message(self.window_message)
+        self._dom.post_to_opener({"type": jira.READY})   # opened by the Jira bookmarklet: it may now send its tickets
         self._loading = asyncio.ensure_future(self.open_room(self._hash()))
         self._beating = asyncio.ensure_future(self._heartbeat())
 
@@ -118,6 +121,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             return
         self._room = answer["room"]
         self._dom.replace_url(self._dom.location().partition("#")[0] + "#" + self._room)
+        self._draw()   # the room's link (the bookmarklet's) is known now
         await self._follow(self._room)
 
     async def join(self) -> None:
@@ -191,8 +195,36 @@ class PokerPage(ISubscriber, ISubscriptionListener):
 
     async def next_task(self) -> None:
         number = self._dom.get_value(self._ui["task_input"])
-        if await self._call(self._poker.next_task(self._room, self._secret, number)) is not None:
-            self._dom.set_value(self._ui["task_input"], "")
+        parent = self._dom.get_value(self._ui["parent_input"])
+        if await self._call(self._poker.next_task(self._room, self._secret, number, parent.strip())) is not None:
+            self._dom.set_value(self._ui["task_input"], "")   # the parent stays: the next task is often its sibling
+
+    async def play(self, number: str) -> None:
+        """a queued ticket picked from the tree"""
+        await self._call(self._poker.next_task(self._room, self._secret, number))
+
+    async def window_message(self, origin: str, data: Any) -> None:
+        """a Jira page (the bookmarklet) sends tickets: kept for the host to confirm; "hello" answers "ready" again"""
+        if jira.site(origin) is None:
+            return
+        if isinstance(data, dict) and data.get("type") == jira.HELLO:
+            self._dom.post_to_opener({"type": jira.READY})
+            return
+        found = jira.received(origin, data)
+        if found is not None:
+            self._pending = found
+            self._draw()
+
+    async def import_pending(self) -> None:
+        if self._pending is None:
+            return
+        if await self._call(self._poker.import_tasks(self._room, self._secret, self._pending[1])) is not None:
+            self._pending = None
+            self._draw()
+
+    async def drop_pending(self) -> None:
+        self._pending = None
+        self._draw()
 
     async def remove(self, participant: str) -> None:
         await self._call(self._poker.remove(self._room, self._secret, participant))
@@ -330,8 +362,27 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._el(task_form, "label", "pp-label", "N° de tâche", for_="pp-task-number")
         ui["task_input"] = self._el(task_form, "input", "pp-input pp-input-small", id="pp-task-number",
                                     maxlength="33", placeholder="KP-111", autocapitalize="characters")
+        self._el(task_form, "label", "pp-label", "Epic / parent (facultatif)", for_="pp-task-parent")
+        ui["parent_input"] = self._el(task_form, "input", "pp-input pp-input-small", id="pp-task-parent",
+                                      maxlength="33", placeholder="KP-100", autocapitalize="characters")
         ui["task_button"] = self._el(task_form, "button", "pp-button pp-primary", type="submit")
         self._dom.on_submit(task_form, ui["task_button"], self.next_task)
+
+        ui["import"] = box = self._el(room, "div", "pp-import")
+        ui["import_confirm"] = confirm = self._el(box, "div", "pp-import-confirm", role="status", hidden="")
+        ui["import_text"] = self._el(confirm, "p", "pp-import-text")
+        self._button(confirm, "pp-button pp-primary", "Importer", self.import_pending)
+        self._button(confirm, "pp-button pp-ghost", "Ignorer", self.drop_pending)
+        details = self._el(box, "details", "pp-import-help")
+        self._el(details, "summary", "", "Importer depuis Jira")
+        steps = self._el(details, "ol", "pp-import-steps")
+        drag = self._el(steps, "li", "", "Glissez ce lien dans votre barre de favoris : ")
+        ui["bookmarklet"] = self._el(drag, "a", "pp-bookmarklet", "Planning poker ← Jira", href="#", draggable="true",
+                                     title="Glissez-moi dans la barre de favoris")
+        self._el(steps, "li", "", "Ouvrez dans Jira un epic, un ticket ou une recherche (*.atlassian.net), puis cliquez sur ce favori.")
+        self._el(steps, "li", "", "La salle s'ouvre : confirmez l'import, puis choisissez le ticket à jouer dans l'arbre. "
+                                  "Jira n'est qu'en lecture, rien n'y est écrit.")
+        ui["queue"] = self._el(room, "div", "pp-queue", hidden="")
 
         board = self._el(room, "div", "pp-board")
         ui["top"] = self._el(board, "div", "pp-seats")
@@ -382,8 +433,11 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._dom.set_text(ui["lock"], "Déverrouiller" if state.get("locked") else "Verrouiller")
         self._dom.set_attribute(ui["lock"], "aria-pressed", "true" if state.get("locked") else "false")
         task = state.get("task")
-        self._dom.set_text(ui["task_title"], f"Tâche {task['number']}" if task else "Pas encore de tâche")
+        self._dom.set_text(ui["task_title"], (f"Tâche {task['number']}" + (f" · {task['title']}" if task.get("title") else ""))
+                           if task else "Pas encore de tâche")
         self._show(ui["task_form"], host and (not task or task.get("revealed")))
+        self._show(ui["import"], host)
+        self._draw_import(host)
         self._dom.set_text(ui["task_button"], "Tâche suivante" if task else "Commencer")
         top, bottom = view.split(view.seats(state, me))
         self._draw_seats(ui["top"], top, host, 0)
@@ -392,6 +446,42 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._draw_results(state, host)
         self._draw_deck(state)
         self._draw_recap(state)
+
+    def _draw_import(self, host: bool) -> None:
+        """the import's confirmation (tickets received), the bookmarklet's link, the queue to pick the next ticket from"""
+        ui, state = self._ui, self._state or {}
+        self._dom.set_attribute(ui["bookmarklet"], "href", jira.bookmarklet(self._link()))
+        self._show(ui["import_confirm"], host and self._pending is not None)
+        if self._pending is not None:
+            site, tickets = self._pending
+            self._dom.set_text(ui["import_text"], f"{len(tickets)} ticket{'s' if len(tickets) > 1 else ''} reçu{'s' if len(tickets) > 1 else ''} de {site}")
+        task = state.get("task")
+        box = ui["queue"]
+        self._dom.clear(box)
+        queue = state.get("queue") or []
+        self._show(box, host and bool(queue))
+        if not queue:
+            return
+        voting = bool(task) and not task.get("revealed")   # picking one now would drop the votes in progress
+        self._el(box, "h3", "pp-recap-title", "À jouer")
+        if voting:
+            self._el(box, "p", "pp-import-text", "Révélez les votes de la tâche en cours pour choisir la suivante.")
+        self._draw_queue(box, queue, voting)
+
+    def _draw_queue(self, parent: Any, nodes: list, locked: bool) -> None:
+        tree = self._el(parent, "ul", "pp-tree")
+        for node in nodes:
+            item = self._el(tree, "li", "")
+            label = f"{node['number']} {node.get('title') or ''}".strip()
+            button = self._button(item, "pp-queue-item", "", lambda number=node["number"]: self.play(number),
+                                  aria_label=f"Jouer {label}", title=node.get("title") or node["number"])
+            if locked:
+                self._dom.set_attribute(button, "disabled", "")
+            self._el(button, "span", "pp-kind is-" + (node.get("kind") or "task"), view.KIND_LABELS.get(node.get("kind"), "Tâche"))
+            self._el(button, "span", "pp-key", node["number"])
+            self._el(button, "span", "pp-title-text", node.get("title") or "")
+            if node.get("children"):
+                self._draw_queue(item, node["children"], locked)
 
     def _draw_welcome(self) -> None:
         ui = self._ui
@@ -527,14 +617,26 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         head = self._el(self._el(table, "thead"), "tr")
         self._el(head, "th", "", "Tâche")
         self._el(head, "th", "", "Estimation")
+        nested = any(row["sub"] for row in rows)
+        if nested:
+            self._el(head, "th", "", "Σ dessous", title="Total des estimations des éléments en dessous")
         body = self._el(table, "tbody")
-        for number, final in rows:
-            row = self._el(body, "tr")
-            self._el(row, "td", "", str(number))
-            self._el(row, "td", "", final)
+        for row in rows:
+            line = self._el(body, "tr", f"pp-depth-{min(row['depth'], 4)}" + (" is-parent" if row["sub"] else ""))
+            cell = self._el(self._el(line, "td", "pp-recap-task"), "div", "pp-recap-line")
+            if row["kind"]:
+                self._el(cell, "span", "pp-kind is-" + row["kind"], view.KIND_LABELS.get(row["kind"], ""))
+            self._el(cell, "span", "pp-key", row["number"])
+            if row["title"]:
+                self._el(cell, "span", "pp-title-text", row["title"])
+            self._el(line, "td", "", row["final"])
+            if nested:
+                self._el(line, "td", "pp-sub", row["sub"])
         foot = self._el(self._el(table, "tfoot"), "tr")
         self._el(foot, "td", "", "Total")
         self._el(foot, "td", "", total)
+        if nested:
+            self._el(foot, "td", "")
 
 
 def _message(error: Exception) -> str:

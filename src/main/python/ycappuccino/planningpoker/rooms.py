@@ -7,7 +7,8 @@ upsert publishes the new state (RoomEvents). An unknown, malformed or purged roo
 
     PlanningPoker:
       max_participants: 30
-      max_tasks: 300
+      max_tasks: 300         # tasks a room holds, imported and queued ones included
+      max_import: 200        # tickets one import brings
       host_absent_seconds: 120   # a host unseen that long hands the room to the next participant
       expiry_days: 90        # rooms inactive longer are purged when a room is created, and at start
 """
@@ -22,7 +23,8 @@ from ycappuccino.api.storage import IManager
 
 from ycappuccino.planningpoker.api import (NOT_FOUND, PARTICIPANT_ITEM, ROOM_ITEM, TASK_ITEM, VOTE_ITEM, IPlanningPoker,
                                            IRateLimits)
-from ycappuccino.planningpoker.deck import DECK, avatar as avatar_of, is_room_id, is_secret, nickname, results, task_number
+from ycappuccino.planningpoker.deck import (DECK, IMPORT_MAX, avatar as avatar_of, is_room_id, is_secret, nickname, results,
+                                            task_number, ticket)
 from ycappuccino.planningpoker.state import fields, records, room_state
 
 _logger = logging.getLogger(__name__)
@@ -44,11 +46,12 @@ def secret_hash(secret: str) -> str:
 class PlanningPoker(IPlanningPoker):
 
     def __init__(self, manager: IManager, limits: IRateLimits, max_participants: int = 30, max_tasks: int = 300,
-                 expiry_days: float = 90, host_absent_seconds: float = 120) -> None:
+                 max_import: int = IMPORT_MAX, expiry_days: float = 90, host_absent_seconds: float = 120) -> None:
         self._manager = manager
         self._limits = limits
         self._max_participants = int(max_participants)
         self._max_tasks = int(max_tasks)
+        self._max_import = int(max_import)
         self._expiry = float(expiry_days) * 86400
         self._absent = float(host_absent_seconds)
 
@@ -178,22 +181,53 @@ class PlanningPoker(IPlanningPoker):
         await self._manager.up_sert(TASK_ITEM, task["_id"], {"final": card})
         return await self._touched(room, person["_id"])
 
-    async def next_task(self, room: str, secret: str, number: str) -> dict:
+    async def next_task(self, room: str, secret: str, number: str, parent: str = "") -> dict:
         record, person = await self._host(room, secret)
         cleaned = task_number(number)
         if cleaned is None:
             raise InvalidRequest("Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).")
+        above = task_number(parent) if parent else None
+        if parent and (above is None or above == cleaned):
+            raise InvalidRequest("Parent invalide (un numéro de tâche, autre que la tâche elle-même).")
         order = int(record.get("tasks") or 0)
         if order >= self._max_tasks:
             raise InvalidRequest(f"Limite de {self._max_tasks} tâches atteinte : créez une nouvelle salle.")
         current = fields(await self._manager.get_one(TASK_ITEM, record.get("task"))) if record.get("task") else {}
-        if current and not current.get("revealed"):  # left unrevealed: forgotten, never recapped
+        if current and not current.get("revealed"):  # left unrevealed: an imported one back in the queue, else forgotten
             await self._manager.delete_many(VOTE_ITEM, {"task": current["_id"]})
-            await self._manager.delete(TASK_ITEM, current["_id"])
-        task = new_id()
-        await self._manager.up_sert(TASK_ITEM, task, {"room": room, "number": cleaned, "order": order + 1,
-                                                      "revealed": False, "final": ""})
+            if current.get("title") or current.get("kind"):
+                await self._manager.up_sert(TASK_ITEM, current["_id"], {"queued": True, "order": 0, "final": ""})
+            else:
+                await self._manager.delete(TASK_ITEM, current["_id"])
+        queued = next((task for task in await records(self._manager, TASK_ITEM, {"room": room, "number": cleaned})
+                       if task.get("queued")), None)
+        task = queued["_id"] if queued else new_id()
+        await self._manager.up_sert(TASK_ITEM, task, {"room": room, "number": cleaned, "order": order + 1, "queued": False,
+                                                      "revealed": False, "final": "", **({"parent": above} if above else {})})
         return await self._touched(room, person["_id"], task=task, tasks=order + 1)
+
+    async def import_tasks(self, room: str, secret: str, items: list) -> dict:
+        record, person = await self._host(room, secret)
+        self._limits.check("import")
+        if not isinstance(items, list) or len(items) > self._max_import:
+            raise InvalidRequest(f"Import refusé : une liste d'au plus {self._max_import} tickets est attendue.")
+        tickets = {found["number"]: found for found in map(ticket, items) if found}
+        if not tickets:
+            raise InvalidRequest("Aucun ticket valide à importer.")
+        self._limits.count("import")
+        stored = await records(self._manager, TASK_ITEM, {"room": room})
+        known = {}
+        for task in sorted(stored, key=lambda task: task.get("order") or 0):
+            known[task.get("number")] = task   # a replayed number: its latest play
+        if len(set(known) | set(tickets)) > self._max_tasks:
+            raise InvalidRequest(f"Limite de {self._max_tasks} tâches par salle : créez une nouvelle salle.")
+        for number, found in tickets.items():
+            existing = known.get(number)
+            changes = {"title": found["title"], "kind": found["kind"], **({"parent": found["parent"]} if found["parent"] else {})}
+            if existing is None:   # new: waiting in the queue; an existing one keeps its votes, final and place
+                changes.update(room=room, number=number, order=0, revealed=False, final="", queued=True)
+            await self._manager.up_sert(TASK_ITEM, existing["_id"] if existing else new_id(), changes)
+        return await self._touched(room, person["_id"])
 
     async def remove(self, room: str, secret: str, participant: str) -> dict:
         record, person = await self._host(room, secret)

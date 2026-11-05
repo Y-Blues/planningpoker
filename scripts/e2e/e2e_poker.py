@@ -9,10 +9,12 @@ included: http://localhost:8096/planningpoker/)."""
 import json
 import os
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 from playwright.sync_api import sync_playwright
@@ -62,6 +64,122 @@ def enter(page, nickname):
 
 def seat_faces(page):
     return page.eval_on_selector_all(".pp-seat .pp-card", "cards => cards.map(c => c.className.split(' ')[1])")
+
+
+JIRA_SITE = "https://test.atlassian.net"
+ISSUES = {   # what the mocked Jira answers, by JQL: an epic, its stories (two pages), their sub-tasks
+    "key = KP-1 OR parent = KP-1": [
+        {"key": "KP-1", "fields": {"summary": "Paiement en ligne", "issuetype": {"name": "Epic", "hierarchyLevel": 1}}},
+        {"key": "KP-2", "fields": {"summary": "Carte bancaire", "issuetype": {"name": "Story", "hierarchyLevel": 0},
+                                   "parent": {"key": "KP-1"}}},
+        {"key": "KP-4", "fields": {"summary": "Facture PDF", "issuetype": {"name": "Story", "hierarchyLevel": 0},
+                                   "parent": {"key": "KP-1"}}}],
+    "parent in (KP-2,KP-4)": [
+        {"key": "KP-3", "fields": {"summary": "Maquette du formulaire", "issuetype": {"name": "Sub-task", "hierarchyLevel": -1},
+                                   "parent": {"key": "KP-2"}}}],
+}
+
+
+def fake_jira(context):
+    """https://test.atlassian.net: a blank page and a mocked /rest/api/3/search/jql (read only: any other method fails);
+    the epic's query comes in two pages (nextPageToken), the requests are recorded"""
+    seen = []
+
+    def search(route):
+        request = route.request
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(request.url).query)
+        seen.append((request.method, query))
+        issues = ISSUES.get(query["jql"][0], [])
+        if request.method != "GET":
+            return route.fulfill(status=405, body="{}")
+        if query["jql"][0].startswith("key = ") and "nextPageToken" not in query:
+            return route.fulfill(json={"issues": issues[:2], "nextPageToken": "page2", "isLast": False})
+        if "nextPageToken" in query:
+            issues = issues[2:]
+        route.fulfill(json={"issues": issues, "isLast": True})
+
+    context.route(JIRA_SITE + "/rest/api/3/search/jql*", search)
+    context.route(JIRA_SITE + "/browse/*", lambda route: route.fulfill(content_type="text/html", body="<!doctype html><title>Jira</title><p>Jira</p>"))
+    return seen
+
+
+def jira_import(context, alice, bob):
+    """the bookmarklet (its real source, from the link the page offers) run on a fake Jira page: pagination, children and
+    grandchildren, the handshake with the room's page, the host's confirmation, the queue, the recap tree and its totals"""
+    check("the import help and the bookmarklet link are offered to the host only", alice.locator(".pp-import-help summary").inner_text() ==
+          "Importer depuis Jira" and alice.locator("a.pp-bookmarklet").count() == 1 and bob.locator(".pp-import:visible").count() == 0)
+    href = alice.get_attribute("a.pp-bookmarklet", "href")
+    script = urllib.parse.unquote(href[len("javascript:"):])
+    secret = alice.evaluate("localStorage.getItem('planningpoker.secret')")
+    check("the link holds the room's address, never the secret", secret and secret not in href and
+          alice.evaluate("location.href") in script and "\n" not in script)
+    alice.click(".pp-import-help summary")
+    alice.screenshot(path=os.path.join(SHOTS, "6_import_help.png"), full_page=True)
+    if shutil.which("node"):
+        syntax = subprocess.run(["node", "--check", "-"], input=f"(async()=>{{{script}}})", text=True, capture_output=True)
+        check("the minified bookmarklet parses", syntax.returncode == 0, syntax.stderr[:200])
+    seen = fake_jira(context)
+    jira = context.new_page()
+    jira.goto(JIRA_SITE + "/browse/KP-1")
+    with context.expect_page() as opened:
+        jira.evaluate("source => (0, eval)(source)", script)
+    room = opened.value
+    room.on("console", lambda message: message.type == "error" and print("  console:", message.text[:200]))
+    room.wait_for_selector(".pp-import-confirm:not([hidden])", timeout=BOOT)
+    check("tickets received from the Jira site, waiting for the host", room.inner_text(".pp-import-text") ==
+          "4 tickets reçus de test.atlassian.net", room.inner_text(".pp-import-text"))
+    check("Jira was only read (GET), page by page, children then grandchildren", seen and all(m == "GET" for m, _ in seen)
+          and [q["jql"][0] for _, q in seen] == ["key = KP-1 OR parent = KP-1"] * 2 + ["parent in (KP-2,KP-4)"], str(seen))
+    check("nothing is queued before the confirmation", room.locator(".pp-queue-item").count() == 0)
+    room.screenshot(path=os.path.join(SHOTS, "7_import_confirm.png"), full_page=True)
+    room.click(".pp-import-confirm .pp-primary")
+    room.wait_for_selector(".pp-queue-item", timeout=T)
+    check("a vote in progress locks the queue", room.locator(".pp-queue-item:disabled").count() == 4)
+    room.click(".pp-reveal")   # task 102's votes out: the queue opens
+    room.wait_for_selector(".pp-queue-item:not([disabled])", timeout=T)
+    tree = room.eval_on_selector_all(".pp-queue-item", "items => items.map(i => i.querySelector('.pp-key').textContent)")
+    check("the queue is a tree: epic, stories, sub-task", tree == ["KP-1", "KP-2", "KP-3", "KP-4"], str(tree))
+    check("the queue shows titles and kinds", "Carte bancaire" in room.inner_text(".pp-queue") and "epic" in room.inner_text(".pp-queue").lower())
+    room.screenshot(path=os.path.join(SHOTS, "8_queue.png"), full_page=True)
+    room.set_viewport_size({"width": 360, "height": 800})
+    check("the queue fits a 360px screen", room.evaluate("document.documentElement.scrollWidth <= window.innerWidth"))
+    room.screenshot(path=os.path.join(SHOTS, "8b_queue_360.png"), full_page=True)
+    room.set_viewport_size({"width": 1280, "height": 800})
+
+    for key, card in (("KP-2", "5"), ("KP-3", "3")):
+        room.click(f".pp-queue-item:has(.pp-key:text-is('{key}'))")
+        room.wait_for_selector(f".pp-task-title:has-text('{key}')", timeout=T)
+        room.click(f".pp-deck-card:text-is('{card}')")
+        room.wait_for_selector(".pp-reveal", timeout=T)
+        room.click(".pp-reveal")
+        room.wait_for_selector(".pp-results:not([hidden])", timeout=T)
+    check("a played ticket shows its title", "Maquette du formulaire" in room.inner_text(".pp-task-title"))
+    room.fill("#pp-task-number", "9001")
+    room.fill("#pp-task-parent", "EPIC-9")
+    room.click(".pp-task-form button")
+    room.wait_for_selector(".pp-task-title:has-text('9001')", timeout=T)
+    room.click(".pp-deck-card:text-is('8')")
+    room.click(".pp-reveal")
+    room.wait_for_selector(".pp-results:not([hidden])", timeout=T)
+    room.fill("#pp-task-number", "9002")
+    room.click(".pp-task-form button")
+    bob.wait_for_selector(".pp-recap-table tr.is-parent", timeout=T)
+    rows = bob.eval_on_selector_all(".pp-recap-table tbody tr", """rows => rows.map(r => [r.className.match(/pp-depth-\\d/)[0],
+        ...[...r.querySelectorAll('td')].map(td => td.querySelector('.pp-key') ? td.querySelector('.pp-key').textContent : td.textContent)])""")
+    flat = {r[1]: r for r in rows}
+    check("the recap is a tree: epic (never played) > story > sub-task", flat["KP-3"][0] == "pp-depth-2" and flat["KP-2"][0] == "pp-depth-1" and flat["KP-1"][0] == "pp-depth-0",
+          str(rows))
+    check("a story shows its own estimate and the total below it", flat["KP-2"][2] == "5" and flat["KP-2"][3] == "3", str(flat["KP-2"]))
+    check("a hand-typed task joins its parent, never played: a group", flat["9001"][0] == "pp-depth-1" and flat["EPIC-9"][3] == "8" and
+          flat["EPIC-9"][2] == "–", str([flat.get("9001"), flat.get("EPIC-9")]))
+    check("the grand total (101 and the three above)", bob.inner_text(".pp-recap-table tfoot").split()[-1] == "29", bob.inner_text(".pp-recap-table tfoot"))
+    bob.screenshot(path=os.path.join(SHOTS, "9_recap_tree.png"), full_page=True)
+    bob.set_viewport_size({"width": 360, "height": 800})
+    check("the recap tree fits a 360px screen", bob.evaluate("document.documentElement.scrollWidth <= window.innerWidth"))
+    bob.screenshot(path=os.path.join(SHOTS, "9b_recap_tree_360.png"), full_page=True)
+    bob.set_viewport_size({"width": 1280, "height": 720})
+    room.close()
+    jira.close()
 
 
 def main():
@@ -221,6 +339,8 @@ def run(playwright):
     check("recap of finished tasks", "101" in bob.inner_text(".pp-recap") and "13" in bob.inner_text(".pp-recap"),
           bob.inner_text(".pp-recap").replace("\n", " | "))
 
+    jira_import(context, alice, bob)
+
     alice.hover(".pp-seat[data-participant] >> nth=2")
     alice.click(".pp-remove[aria-label='Retirer Chloé']")
     chloe.wait_for_selector(".pp-error:not([hidden])", timeout=T)
@@ -237,7 +357,7 @@ def run(playwright):
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
     check("a known browser comes back as itself, even locked", "Bobby" in bob.inner_text(".pp-me"))
 
-    # host handover: Alice (the host) leaves; once unseen for ABSENT seconds, Bob (the next joined) hosts
+    # host handover: Alice (the host) leaves (her Jira tab, also hers, is closed: it would keep pinging); once unseen for ABSENT seconds, Bob (the next joined) hosts
     if not os.environ.get("POKER_E2E_BASE"):
         alice.close()
         bob.wait_for_function("document.querySelector('.pp-me').innerText.includes('animateur')", timeout=(ABSENT + 30) * 1000)

@@ -13,7 +13,18 @@ French UI. No account: pick a nickname, create a room, share its link.
   participant, locks the room. A host unseen for 2 minutes (`host_absent_seconds`; the page pings every 15 s) hands the
   room to the participant who joined next and is still present; the old host then returns as a normal participant.
 - **Votes** stay hidden until revealed; then each card, the average, the nearest card, min and max; a recap of the
-  finished tasks.
+  finished tasks, as a tree Epic > Story > Sub-task with the points of what is below each level.
+- **Hierarchy**: a task may name its parent (an optional "Epic / parent" next to the task number, or imported from
+  Jira): the recap groups them, each parent showing its own estimate and the total of its descendants (? and ☕ count
+  for nothing).
+- **Jira import** (Jira Cloud, `*.atlassian.net`, read only): no API key, no OAuth app. The host drags a bookmarklet
+  (`static/jira_bookmarklet.js`, the app's only hand-written JavaScript, minified into the link by `page/jira.py`) to
+  the bookmarks bar. On a Jira epic, ticket, search or filter page it reads the tickets with the user's own session
+  (`GET /rest/api/3/search/jql`, `nextPageToken` pages, 200 tickets at most; an issue page brings that issue, its
+  children and grandchildren), opens the room and `postMessage`s them (a `fetch` to the poker server would be refused
+  by Jira's `connect-src` CSP). The room page listens only to `https://*.atlassian.net`, shows "N tickets reçus de
+  <site>", and the host confirms; they then wait in a queue tree the host plays from. The link holds the room's address,
+  never the browser's secret. Needs a pop-up allowed for the Jira site, and Jira not cutting `window.opener`.
 - **Live**: every call goes over a WebSocket (WS-RPC); each room's state is published on its pubsub topic.
 - **Abuse**: per-address rate limits (room creation, unknown rooms asked, actions), 30 participants and 300 tasks a
   room, validated inputs, `noindex` everywhere.
