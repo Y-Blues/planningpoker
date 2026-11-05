@@ -33,6 +33,11 @@ class IPlanningPoker(YCappuccinoComponent, ABC):
         """the nickname bound to this secret in the room; refused when another secret holds it"""
 
     @abstractmethod
+    @rpc_method(summary="change this participant's nickname", secure=False)
+    async def rename(self, room: str, secret: str, nickname: str) -> dict:
+        """the caller's own nickname, unique in the room (same rules as join)"""
+
+    @abstractmethod
     @rpc_method(summary="change this participant's avatar", secure=False)
     async def set_avatar(self, room: str, secret: str, avatar: str) -> dict:
         """one of deck.AVATARS, the caller's own only"""

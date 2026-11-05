@@ -139,20 +139,50 @@ def run(playwright):
     check("three players at the table, live", alice.locator(".pp-seat").count() == 3)
 
     check("everyone sees Alice's chosen avatar", bob.locator(".pp-seat .pp-avatar", has_text=avatar).count() == 1)
-    bob.click("button.pp-avatar")
-    bob.click(".pp-picker-room .pp-avatar-choice >> nth=7")
-    new = bob.inner_text(".pp-picker-room .pp-avatar-choice >> nth=7")
+    bob.click(".pp-edit")
+    bob.wait_for_selector("#pp-profile:not([hidden])", timeout=T)
+    check("the profile panel opens on the nickname", bob.evaluate("document.activeElement.id") == "pp-profile-name",
+          bob.evaluate("document.activeElement.outerHTML.slice(0, 80)"))
+    bob.keyboard.press("Escape")
+    bob.wait_for_selector("#pp-profile", state="hidden", timeout=T)
+    check("Escape closes it, focus back on the button", bob.locator("#pp-profile:visible").count() == 0 and
+          bob.evaluate("document.activeElement.classList.contains('pp-edit')"))
+    bob.click(".pp-edit")
+    bob.wait_for_selector("#pp-profile:not([hidden])", timeout=T)
+    bob.fill("#pp-profile-name", "Alice")
+    bob.keyboard.press("Enter")
+    bob.wait_for_selector(".pp-error:not([hidden])", timeout=T)
+    check("a taken nickname is refused, the panel stays open", "déjà pris" in bob.inner_text(".pp-error") and
+          bob.locator("#pp-profile:visible").count() == 1)
+    bob.fill("#pp-profile-name", "Bobby")
+    bob.click("#pp-profile .pp-avatar-choice >> nth=7")
+    new = bob.inner_text("#pp-profile .pp-avatar-choice >> nth=7")
+    bob.screenshot(path=os.path.join(SHOTS, "1c_profile_panel.png"), full_page=True)
+    bob.click("#pp-profile button[type=submit]")
     alice.wait_for_function("a => [...document.querySelectorAll('.pp-seat .pp-avatar')].some(e => e.textContent === a)", arg=new, timeout=T)
-    check("Bob's new avatar shows to the others live", True)
+    alice.wait_for_selector(".pp-seat .pp-name >> text=Bobby", timeout=T)
+    check("Bob's new nickname and avatar show to the others live", True)
+    bob.wait_for_selector("#pp-profile", state="hidden", timeout=T)
+    check("the panel closed, the error is gone", bob.locator("#pp-profile:visible").count() == 0 and
+          bob.locator(".pp-error:visible").count() == 0)
     bob.reload()
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=T)
     check("a reloaded browser keeps its avatar", bob.locator("button.pp-avatar", has_text=new).count() == 1)
 
+    chloe.set_viewport_size({"width": 360, "height": 780})
+    chloe.click(".pp-edit")
+    chloe.wait_for_selector("#pp-profile:not([hidden])", timeout=T)
+    check("the profile panel fits a 360px screen", chloe.evaluate(
+        "document.documentElement.scrollWidth <= window.innerWidth && document.getElementById('pp-profile').getBoundingClientRect().right <= window.innerWidth"))
+    chloe.screenshot(path=os.path.join(SHOTS, "1d_profile_panel_360.png"), full_page=True)
+    chloe.click("#pp-profile .pp-profile-actions .pp-ghost")
+    chloe.wait_for_selector("#pp-profile", state="hidden", timeout=T)
+
     mallory = open_page(browser, link)
     mallory.wait_for_selector("text=Rejoindre la salle", timeout=T)
-    enter(mallory, "bob")
+    enter(mallory, "bobby")
     mallory.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("someone else cannot take Bob's nickname", "déjà pris" in mallory.inner_text(".pp-error"),
+    check("someone else cannot take Bob's new nickname", "déjà pris" in mallory.inner_text(".pp-error"),
           mallory.inner_text(".pp-error"))
     check("Bob's seat is untouched", alice.locator(".pp-seat").count() == 3)
 
@@ -205,7 +235,7 @@ def run(playwright):
     check("a locked room refuses newcomers", "verrouillée" in dan.inner_text(".pp-error"), dan.inner_text(".pp-error"))
     bob.reload()
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
-    check("a known browser comes back as itself, even locked", "Bob" in bob.inner_text(".pp-me"))
+    check("a known browser comes back as itself, even locked", "Bobby" in bob.inner_text(".pp-me"))
 
     # host handover: Alice (the host) leaves; once unseen for ABSENT seconds, Bob (the next joined) hosts
     if not os.environ.get("POKER_E2E_BASE"):

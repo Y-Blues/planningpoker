@@ -53,7 +53,7 @@ class TestRoomIds(Room):
 
     async def test_rooms_cannot_be_listed(self):
         self.assertEqual(set(get_rpc_methods(IPlanningPoker)), {
-            "create_room", "join", "set_avatar", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
+            "create_room", "join", "rename", "set_avatar", "state", "ping", "vote", "reveal", "revote", "set_final", "next_task", "remove", "lock"})
         descriptor = yaml.safe_load(resources.files("ycappuccino.planningpoker").joinpath("ycappuccino_app.yml")
                                     .read_text(encoding="utf-8"))
         bundles = [bundle for part in descriptor["parts"].values() for bundle in part.get("bundles", [])]
@@ -117,6 +117,37 @@ class TestIdentity(Room):
         self.assertEqual(len((await self.poker.join(room, self.bob, "Bob"))["participants"]), 2)
         await self.poker.lock(room, self.alice, False)
         await self.poker.join(room, self.chloe, "Chloé")
+
+
+class TestRename(Room):
+
+    async def test_a_participant_renames_and_keeps_host_and_vote(self):
+        room = await self.room()
+        await self.poker.next_task(room, self.alice, "KP-1")
+        await self.poker.vote(room, self.alice, "5")
+        answer = await self.poker.rename(room, self.alice, "  Alicia ")
+        self.assertEqual([p["nickname"] for p in answer["participants"]], ["Alicia", "Bob"])
+        self.assertEqual(answer["host"], answer["me"])  # still the host
+        self.assertTrue(answer["participants"][0]["voted"])  # its vote is kept
+        self.assertEqual(self.publisher.published[-1][1]["participants"][0]["nickname"], "Alicia")
+        with self.assertRaisesRegex(Forbidden, "déjà pris"):
+            await self.poker.join(room, self.chloe, "alicia")  # the new name is the one taken
+        await self.poker.join(room, self.chloe, "Alice")  # the old one is free again
+
+    async def test_taken_by_another_is_forbidden_unchanged_or_case_is_fine(self):
+        room = await self.room()
+        with self.assertRaisesRegex(Forbidden, "déjà pris"):
+            await self.poker.rename(room, self.bob, " ALICE ")
+        self.assertEqual((await self.poker.rename(room, self.bob, "Bob"))["participants"][1]["nickname"], "Bob")  # no-op
+        self.assertEqual((await self.poker.rename(room, self.bob, "BOB"))["participants"][1]["nickname"], "BOB")
+
+    async def test_invalid_or_stranger_is_refused(self):
+        room = await self.room()
+        for bad in ("", "<b>x</b>", "x" * 25):
+            with self.assertRaises(InvalidRequest):
+                await self.poker.rename(room, self.bob, bad)
+        with self.assertRaises(Forbidden):
+            await self.poker.rename(room, self.chloe, "Chloé")  # never joined
 
 
 class TestAvatars(Room):

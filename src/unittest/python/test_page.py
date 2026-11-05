@@ -7,7 +7,7 @@ from ycappuccino.api.endpoints_storage import Forbidden, NotFound
 from ycappuccino.planningpoker.api import NOT_FOUND, room_topic
 from ycappuccino.planningpoker.deck import AVATARS
 from ycappuccino.planningpoker.page import view
-from ycappuccino.planningpoker.page.poker_page import AVATAR_KEY, SECRET_KEY, PokerPage
+from ycappuccino.planningpoker.page.poker_page import AVATAR_KEY, NICKNAME_KEY, SECRET_KEY, PokerPage
 
 ROOM = "R" * 32
 
@@ -198,18 +198,57 @@ class TestAvatarAndFooter(Page):
         await self.open(preferences={AVATAR_KEY: AVATARS[5]})
         self.assertEqual(self.dom.query_all(self.page._ui["welcome_picker"], ".pp-avatar-choice")[5].attrs["aria-pressed"], "true")
 
-    async def test_the_room_shows_avatars_and_my_own_reopens_the_picker(self):
+    async def test_the_room_shows_avatars_and_my_own_opens_the_profile(self):
         await self.open("/#" + ROOM, answer={**state(), "me": "a"})
         self.assertEqual(sorted(seat.text for seat in self.find(".pp-avatar")), ["🐼", "🦊"])
         self.assertEqual(len(self.find("button.pp-avatar")), 1)  # only mine
-        self.assertTrue(self.hidden("picker"))
+        self.assertTrue(self.hidden("profile"))
         await self.dom.click(self.find("button.pp-avatar")[0])
-        self.assertFalse(self.hidden("picker"))
-        self.poker.answer = {**state(), "stamp": 2, "me": "a"}
+        self.assertFalse(self.hidden("profile"))
+
+    async def test_the_profile_saves_nickname_and_avatar(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "a"})
+        await self.dom.click(self.page._ui["edit"])
+        self.assertFalse(self.hidden("profile"))
+        self.assertEqual(self.dom.get_value(self.page._ui["profile_name"]), "A")  # prefilled
+        self.assertEqual(self.page._ui["edit"].attrs["aria-expanded"], "true")
+        self.assertIs(self.dom.focused, self.page._ui["profile_name"])
+        self.dom.set_value(self.page._ui["profile_name"], "  Alicia  ")
         await self.dom.click(self.dom.query_all(self.page._ui["picker"], ".pp-avatar-choice")[1])
-        self.assertEqual(self.poker.calls[-1], ("set_avatar", (ROOM, self.page._secret, AVATARS[1])))
-        self.assertTrue(self.hidden("picker"))
+        self.assertEqual(self.poker.calls[-1][0], "state")  # nothing saved by the pick itself
+        self.poker.answer = {**state(), "stamp": 2, "me": "a"}
+        await self.dom.submit(self.page._ui["profile"])
+        self.assertEqual([call for call in self.poker.calls if call[0] in ("rename", "set_avatar")], [
+            ("rename", (ROOM, self.page._secret, "Alicia")), ("set_avatar", (ROOM, self.page._secret, AVATARS[1]))])
+        self.assertTrue(self.hidden("profile"))
+        self.assertIs(self.dom.focused, self.page._ui["edit"])
+        self.assertEqual(self.dom.preferences[NICKNAME_KEY], "Alicia")
         self.assertEqual(self.dom.preferences[AVATAR_KEY], AVATARS[1])
+
+    async def test_unchanged_calls_nothing_and_escape_or_cancel_closes(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "a"})
+        before = len(self.poker.calls)
+        await self.dom.click(self.page._ui["edit"])
+        await self.dom.submit(self.page._ui["profile"])
+        self.assertEqual(len(self.poker.calls), before)
+        self.assertTrue(self.hidden("profile"))
+        await self.dom.click(self.page._ui["edit"])
+        await self.dom.escape()
+        self.assertTrue(self.hidden("profile"))
+        await self.dom.click(self.page._ui["edit"])
+        await self.dom.click(self.page._ui["cancel"])
+        self.assertTrue(self.hidden("profile"))
+        self.assertEqual(self.page._ui["edit"].attrs["aria-expanded"], "false")
+
+    async def test_a_refusal_keeps_the_panel_open_with_the_message(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "a"})
+        await self.dom.click(self.page._ui["edit"])
+        self.dom.set_value(self.page._ui["profile_name"], "B")
+        self.poker.error = Forbidden("Ce pseudo est déjà pris dans cette salle.")
+        await self.dom.submit(self.page._ui["profile"])
+        self.assertFalse(self.hidden("profile"))
+        self.assertEqual(self.page._ui["error"].text, "Ce pseudo est déjà pris dans cette salle.")
+        self.assertFalse(self.hidden("error"))
 
 
 class TestView(unittest.TestCase):

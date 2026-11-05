@@ -88,9 +88,7 @@ class PlanningPoker(IPlanningPoker):
         self._limits.count("action")
         people = await records(self._manager, PARTICIPANT_ITEM, {"room": room})
         mine = next((person for person in people if person.get("secret") == secret_hash(secret)), None)
-        holder = next((person for person in people if person.get("key") == name.casefold()), None)
-        if holder is not None and holder is not mine:
-            raise Forbidden("Ce pseudo est déjà pris dans cette salle.")
+        _free(people, name, mine)
         if mine is not None:
             await self._manager.up_sert(PARTICIPANT_ITEM, mine["_id"], {
                 "nickname": name, "key": name.casefold(), "seen_at": time.time(), **({"avatar": chosen} if chosen else {})})
@@ -116,6 +114,15 @@ class PlanningPoker(IPlanningPoker):
     async def ping(self, room: str, secret: str) -> dict:
         record, person = await self._caller(room, secret)
         return await self._answer(room, person["_id"])
+
+    async def rename(self, room: str, secret: str, nickname: str) -> dict:
+        name = _nickname(nickname)
+        record, person = await self._caller(room, secret)
+        if person.get("nickname") == name:
+            return await self._answer(room, person["_id"])
+        _free(await records(self._manager, PARTICIPANT_ITEM, {"room": room}), name, person)
+        await self._manager.up_sert(PARTICIPANT_ITEM, person["_id"], {"nickname": name, "key": name.casefold()})
+        return await self._touched(room, person["_id"])
 
     async def set_avatar(self, room: str, secret: str, avatar: str) -> dict:
         record, person = await self._caller(room, secret)
@@ -285,6 +292,13 @@ class PlanningPoker(IPlanningPoker):
         if state is None:
             raise NotFound(NOT_FOUND)
         return {**state, "me": person}
+
+
+def _free(people: list, name: str, mine: dict | None) -> None:
+    """the nickname must not belong to another participant of the room"""
+    holder = next((person for person in people if person.get("key") == name.casefold()), None)
+    if holder is not None and (mine is None or holder["_id"] != mine["_id"]):
+        raise Forbidden("Ce pseudo est déjà pris dans cette salle.")
 
 
 def _nickname(text: str) -> str:
