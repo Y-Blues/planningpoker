@@ -8,6 +8,6 @@ version = "0"
 ycappuccino-api = { path = "../../../api-poker", editable = true }
 ycappuccino-core = { path = "../../../core-poker", editable = true }
 ycappuccino-client = { path = "../../../client-poker", editable = true }
-ycappuccino-ui = { path = "../../../ui-poker", editable = true }
-ycappuccino-ui-web = { path = "../../../ui_web-poker", editable = true }
+ycappuccino-ui = { path = "../../../ui", editable = true }
+ycappuccino-ui-web = { path = "../../../ui_web", editable = true }
 ycappuccino-planningpoker = { path = "../..", editable = true }

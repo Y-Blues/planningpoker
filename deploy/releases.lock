@@ -11,6 +11,6 @@ hosts v0.6.9
 pubsub v0.7.2
 permissions_app v0.7.36
 client v0.6.7
-ui v0.5.50
-ui_web v0.6.47
+ui v0.5.52
+ui_web v0.6.50
 build v0.6.17
