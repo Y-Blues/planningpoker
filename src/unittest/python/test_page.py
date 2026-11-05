@@ -140,7 +140,7 @@ class TestTable(Page):
         self.assertEqual(self.find(".pp-reveal"), [])  # b is not the host
         await self.page.on_message(room_topic(ROOM), {**state(revealed=True), "stamp": 2})
         self.assertEqual(sorted(card.text for card in self.find(".pp-card.is-up")), ["3", "8"])
-        self.assertTrue(self.hidden("deck") and not self.hidden("results"))
+        self.assertTrue(not self.hidden("deck") and not self.hidden("results"))   # the hand stays: a card may change after the reveal
         await self.page.on_message(room_topic(ROOM), {**state(), "stamp": 1})  # an older state: ignored
         self.assertEqual(len(self.find(".pp-card.is-up")), 2)
 

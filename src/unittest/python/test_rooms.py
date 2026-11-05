@@ -167,8 +167,22 @@ class TestVoting(Room):
         self.assertEqual((state["results"]["average"], state["results"]["nearest"]), (5.5, "5"))
         self.assertEqual(state["task"], {"id": state["task"]["id"], "number": "101", "revealed": True, "final": "5"})
         self.assertEqual(self.publisher.published[-1][1]["results"]["nearest"], "5")  # everyone told
-        with self.assertRaises(InvalidRequest):
-            await self.poker.vote(room, self.bob, "5")
+
+    async def test_a_card_changes_after_the_reveal_and_the_results_follow(self):
+        room = await self.room()
+        await self.poker.next_task(room, self.alice, "101")
+        await self.poker.vote(room, self.alice, "3")
+        await self.poker.vote(room, self.bob, "8")
+        await self.poker.reveal(room, self.alice)
+        state = await self.poker.vote(room, self.bob, "3")   # Bob changes his mind once he sees the cards
+        self.assertEqual([p["card"] for p in state["participants"]], ["3", "3"])
+        self.assertTrue(state["results"]["consensus"])
+        self.assertEqual(state["task"]["final"], "3")   # the computed estimate follows
+        self.assertEqual(self.publisher.published[-1][1]["results"]["nearest"], "3")   # everyone told
+        await self.poker.set_final(room, self.alice, "5")   # the host's own pick ...
+        state = await self.poker.vote(room, self.bob, "13")
+        self.assertEqual(state["task"]["final"], "5")   # ... stays
+        self.assertTrue(state["task"]["revealed"])
 
     async def test_cards_withdraw_revote_final_and_recap(self):
         room = await self.room()

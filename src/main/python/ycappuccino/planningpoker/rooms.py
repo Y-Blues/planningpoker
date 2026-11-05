@@ -130,14 +130,20 @@ class PlanningPoker(IPlanningPoker):
         if card not in DECK and card != "":
             raise InvalidRequest("Carte inconnue.")
         task = fields(await self._manager.get_one(TASK_ITEM, record.get("task"))) if record.get("task") else {}
-        if not task or task.get("revealed"):
+        if not task:
             raise InvalidRequest("Aucun vote en cours.")
         vote_id = f"{task['_id']}.{person['_id']}"
+        before = None
+        if task.get("revealed"):   # a card changed after the reveal: the results follow, the host's own pick stays
+            before = results([vote["card"] for vote in await records(self._manager, VOTE_ITEM, {"task": task["_id"]})])
         if card:
             await self._manager.up_sert(VOTE_ITEM, vote_id, {"room": room, "task": task["_id"],
                                                              "participant": person["_id"], "card": card})
         else:
             await self._manager.delete(VOTE_ITEM, vote_id)
+        if before is not None and (task.get("final") or "") == (before["nearest"] or ""):
+            after = results([vote["card"] for vote in await records(self._manager, VOTE_ITEM, {"task": task["_id"]})])
+            await self._manager.up_sert(TASK_ITEM, task["_id"], {"final": after["nearest"] or ""})
         return await self._touched(room, person["_id"])
 
     # ------------------------------------------------------------------ the host

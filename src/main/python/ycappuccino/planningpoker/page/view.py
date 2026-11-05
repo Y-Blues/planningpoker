@@ -49,7 +49,7 @@ def my_card(state: dict, me: str | None, chosen: str) -> str:
 
 def can_vote(state: dict, me: str | None) -> bool:
     task = state.get("task")
-    return me is not None and bool(task) and not task.get("revealed")
+    return me is not None and bool(task)   # also after the reveal: a card may still change
 
 
 def results(state: dict) -> list:
