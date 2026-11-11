@@ -1,5 +1,7 @@
 # Planning poker
 
+[![Tests unitaires](https://github.com/Y-Blues/planningpoker/raw/badges/coverage.svg)](https://github.com/Y-Blues/planningpoker/actions/workflows/ci.yml)
+
 A planning poker for a team, built on the YCappuccino framework (a showcase: one small app, nothing hand-rolled).
 French UI. No account: pick a nickname, create a room, share its link.
 
