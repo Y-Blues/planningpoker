@@ -2,9 +2,9 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'LICENSE', 'NOTICE']
+    paths-ignore: ['.github/badges/**', '**.md', 'docs/**', 'LICENSE', 'NOTICE']
   pull_request:
-    paths-ignore: ['**.md', 'docs/**', 'LICENSE', 'NOTICE']
+    paths-ignore: ['.github/badges/**', '**.md', 'docs/**', 'LICENSE', 'NOTICE']
 jobs:
   ci:
     uses: Y-Blues/.github/.github/workflows/python-ci.yml@main

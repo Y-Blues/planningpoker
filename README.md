@@ -2,7 +2,7 @@
 
 A planning poker for a team: pick a nickname, create a room, share its link.
 
-[![Tests unitaires](https://github.com/Y-Blues/planningpoker/raw/badges/coverage.svg)](https://github.com/Y-Blues/planningpoker/actions/workflows/ci.yml)
+[![Coverage](.github/badges/coverage.svg)](https://github.com/Y-Blues/.github/blob/main/COVERAGE.md)
 
 ## What it does
 
