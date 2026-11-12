@@ -28,7 +28,7 @@ App. Works with `ui_web` and `client` (the Pyodide page), `storage` (rooms), `re
 
 ## Status
 
-Version 0.1.0.
+In use.
 
 More: [docs/DETAILS.md](docs/DETAILS.md) (full reference).
 
