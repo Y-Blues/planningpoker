@@ -1,12 +1,12 @@
 [project]
 name = "ycappuccino-planningpoker"
-version = "0.1.0"
+version = "0.1.0.1"
 description = "Planning poker on YCappuccino: anonymous nicknames, a shared room, live votes over WebSocket, a Pyodide page"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.12"
 dependencies = [
-    "ycappuccino-api",
+    "ycappuccino-api>=0.7.64",
     "ycappuccino-core",
     "ycappuccino-storage",
     "ycappuccino-endpoints-service",
