@@ -68,7 +68,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._drawn: Optional[dict] = None  # the state drawn last (its stamp aside)
         self._pending: Optional[tuple[str, list]] = None  # (Jira site, tickets) received, waiting for the host's OK
         self._since = 0.0  # when the current moments started (a redraw resumes them where they are)
-        self._texts: Locale = strings.packaged()   # the storage's languages and texts, every language
+        self._texts: Locale = Locale()   # the storage's languages and texts, every language (the shipped seed's from start)
         self._locale: Locale = self._texts   # the same, in the language shown
         self._language: Optional[LanguageSwitch] = None
         self._b: Optional[Builder] = None  # the static texts, relabelled when the language changes
@@ -416,14 +416,14 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         app = self._el(mount, "div", "pp-app")
         header = self._el(app, "header", "pp-header")
         self._el(header, "span", "pp-brand", key="poker.brand")
+        ui["language"] = self._language.render(header)   # on the brand's line; the tools after it (poker.css)
+        self._b.text(ui["language"], "poker.language", "aria-label")
         ui["tools"] = tools = self._el(header, "div", "pp-tools")
         ui["me"] = self._el(tools, "span", "pp-me")
         ui["edit"] = self._button(tools, "pp-button pp-ghost pp-edit", "", self.toggle_profile, key="poker.edit",
                                   keys={"title": "poker.edit.title"}, aria_expanded="false", aria_controls="pp-profile")
         ui["lock"] = self._button(tools, "pp-button pp-ghost", "", self.toggle_lock)
         ui["copy"] = self._button(tools, "pp-button pp-ghost", "", self.copy_link, key="poker.copy_link")
-        ui["language"] = self._language.render(header)   # on the brand's line on a phone (poker.css)
-        self._b.text(ui["language"], "poker.language", "aria-label")
         ui["error"] = self._el(app, "p", "pp-error", role="alert", hidden="")
 
         ui["welcome"] = welcome = self._el(app, "section", "pp-welcome")

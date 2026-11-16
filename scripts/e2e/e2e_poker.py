@@ -155,6 +155,9 @@ def jira_import(context, alice, bob):
                          " const last = document.querySelector('.pp-tutorial ul.yc-steps > li:last-child').getBoundingClientRect();"
                          " return b.scrollTop > 0 && last.bottom <= r.bottom + 1; })()"))
     alice.screenshot(path=os.path.join(SHOTS, "6d_tutorial_end.png"))
+    alice.evaluate("document.querySelector('.pp-tutorial-readonly').scrollIntoView({block: 'start'})")
+    alice.wait_for_timeout(200)
+    alice.screenshot(path=os.path.join(SHOTS, "6f_tutorial_readonly_tips.png"))   # steps 4-5's end, read only, the drag tip
     alice.evaluate("document.querySelector('.pp-tutorial .yc-drawer-body').scrollTop = 0")
     alice.set_viewport_size({"width": 360, "height": 780})
     alice.wait_for_timeout(400)
@@ -165,6 +168,22 @@ def jira_import(context, alice, bob):
     alice.wait_for_timeout(200)
     alice.screenshot(path=os.path.join(SHOTS, "6e_tutorial_end_360.png"))
     alice.set_viewport_size({"width": 1280, "height": 720})
+    alice.click(".pp-tutorial .yc-drawer-close")
+    alice.wait_for_selector(".pp-tutorial[aria-hidden=true]", state="attached", timeout=T)
+    alice.set_viewport_size({"width": 768, "height": 900})
+    alice.wait_for_timeout(300)
+    check("at 768px the host's header: the switch on the brand's line, the tools below from the left", alice.evaluate(
+        "(() => { const b = document.querySelector('.pp-brand').getBoundingClientRect();"
+        " const l = document.querySelector('.pp-header .yc-language').getBoundingClientRect();"
+        " const t = document.querySelector('.pp-tools').getBoundingClientRect();"
+        " const first = document.querySelector('.pp-tools > :not([hidden])').getBoundingClientRect();"
+        " return Math.abs((l.top + l.bottom) - (b.top + b.bottom)) < 12 && t.top >= b.bottom - 1 && first.left - t.left < 2"
+        " && document.documentElement.scrollWidth <= window.innerWidth; })()"))
+    alice.screenshot(path=os.path.join(SHOTS, "6g_host_header_768.png"))
+    alice.set_viewport_size({"width": 1280, "height": 720})
+    alice.click(".pp-tutorial-open")
+    alice.wait_for_selector(".pp-tutorial[aria-hidden=false]", timeout=T)
+    alice.wait_for_timeout(400)
     alice.click(".pp-tutorial .yc-drawer-close")
     alice.wait_for_selector(".pp-tutorial[aria-hidden=true]", state="attached", timeout=T)
     check("the how-to closes, the focus back on its button", alice.evaluate("document.activeElement.classList.contains('pp-tutorial-open')"))
@@ -284,6 +303,11 @@ def run(playwright):
     with urllib.request.urlopen(BASE + "robots.txt") as response:
         check("robots.txt disallows everything", "Disallow: /" in response.read().decode())
     alice.screenshot(path=os.path.join(SHOTS, "1_welcome.png"), full_page=True)
+    size = alice.viewport_size
+    alice.set_viewport_size({"width": 360, "height": 780})
+    alice.wait_for_timeout(300)
+    alice.screenshot(path=os.path.join(SHOTS, "1e_welcome_360.png"), full_page=True)
+    alice.set_viewport_size(size)
 
     check("footer credits iPOPO and YCappuccino", alice.locator(".pp-footer a[target=_blank][rel=noopener]").count() == 2
           and L["footer"] in alice.inner_text(".pp-footer"))

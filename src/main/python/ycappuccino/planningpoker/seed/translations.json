@@ -107,7 +107,7 @@
     "id": "poker.welcome.lead",
     "key": "poker.welcome.lead",
     "text": {
-      "fr": "Estimez vos tâches en équipe : créez une salle, partagez son lien, votez en même temps, révélez.",
+      "fr": "Estimez vos tâches en équipe : créez une salle, partagez son lien, votez en même temps, révélez.",
       "en": "Estimate your tasks as a team: create a room, share its link, vote at the same time, reveal."
     }
   },
@@ -163,7 +163,7 @@
     "id": "poker.nickname.example",
     "key": "poker.nickname.example",
     "text": {
-      "fr": "Ex. : Camille",
+      "fr": "Ex. : Camille",
       "en": "e.g. Sam"
     }
   },
@@ -387,7 +387,7 @@
     "id": "poker.tutorial.s2.text",
     "key": "poker.tutorial.s2.text",
     "text": {
-      "fr": "Cliquez sur le bouton et gardez le clic enfoncé, montez jusqu'à la barre, puis relâchez. Une fois par salle : ce favori ouvre toujours cette salle.",
+      "fr": "Cliquez sur le bouton et gardez le clic enfoncé, montez jusqu'à la barre, puis relâchez. Une fois par salle : ce favori ouvre toujours cette salle.",
       "en": "Click the button and hold, move up to the bar, then let go. Once per room: this bookmark always opens this room."
     }
   },
@@ -419,7 +419,7 @@
     "id": "poker.tutorial.s4.text",
     "key": "poker.tutorial.s4.text",
     "text": {
-      "fr": "Cliquez sur « Planning poker ← Jira » dans la barre de favoris. Cette salle s'ouvre et reçoit les tickets.",
+      "fr": "Cliquez sur « Planning poker ← Jira » dans la barre de favoris. Cette salle s'ouvre et reçoit les tickets.",
       "en": "Click “Planning poker ← Jira” in the bookmarks bar. This room opens and receives the issues."
     }
   },
@@ -435,7 +435,7 @@
     "id": "poker.tutorial.s5.text",
     "key": "poker.tutorial.s5.text",
     "text": {
-      "fr": "Dans la salle, l'animateur clique sur Importer. Les tickets arrivent dans « À jouer » : cliquez sur celui à estimer. Le récapitulatif les range en Epic › Story › Sous-tâche, avec les totaux.",
+      "fr": "Dans la salle, l'animateur clique sur Importer. Les tickets arrivent dans « À jouer » : cliquez sur celui à estimer. Le récapitulatif les range en Epic › Story › Sous-tâche, avec les totaux.",
       "en": "In the room, the host clicks Import. The issues arrive in “Up next”: click the one to estimate. The summary sorts them as Epic › Story › Sub-task, with the totals."
     }
   },
@@ -443,7 +443,7 @@
     "id": "poker.tutorial.readonly",
     "key": "poker.tutorial.readonly",
     "text": {
-      "fr": "🔒 Jira est seulement lu : rien n'est jamais écrit ni modifié dans Jira.",
+      "fr": "🔒 Jira est seulement lu : rien n'est jamais écrit ni modifié dans Jira.",
       "en": "🔒 Jira is read-only here: nothing is ever written or changed in it."
     }
   },
@@ -451,7 +451,7 @@
     "id": "poker.tutorial.tips",
     "key": "poker.tutorial.tips",
     "text": {
-      "fr": "Ça ne marche pas ?",
+      "fr": "Ça ne marche pas ?",
       "en": "Not working?"
     }
   },
@@ -467,7 +467,7 @@
     "id": "poker.tutorial.tip_drag.text",
     "key": "poker.tutorial.tip_drag.text",
     "text": {
-      "fr": "Firefox : clic droit sur le bouton › Marquer ce lien. Chrome : cliquez sur « Copier le favori », puis clic droit sur la barre de favoris › Ajouter une page, nommez-la « Planning poker ← Jira » et collez dans le champ URL. Edge : cliquez sur « Copier le favori », puis clic droit sur la barre des favoris › Ajouter cette page aux favoris ; clic droit sur ce nouveau favori › Modifier, nommez-le « Planning poker ← Jira » et collez dans le champ URL.",
+      "fr": "Firefox : clic droit sur le bouton › Marquer ce lien. Chrome : cliquez sur « Copier le favori », puis clic droit sur la barre de favoris › Ajouter une page, nommez-la « Planning poker ← Jira » et collez dans le champ URL. Edge : cliquez sur « Copier le favori », puis clic droit sur la barre des favoris › Ajouter cette page aux favoris ; clic droit sur ce nouveau favori › Modifier, nommez-le « Planning poker ← Jira » et collez dans le champ URL.",
       "en": "Firefox: right-click the button › Bookmark Link. Chrome: click “Copy the bookmark”, then right-click the bookmarks bar › Add page, name it “Planning poker ← Jira” and paste into the URL field. Edge: click “Copy the bookmark”, then right-click the favorites bar › Add this page to favorites; right-click that new favorite › Edit, name it “Planning poker ← Jira” and paste into the URL field."
     }
   },
@@ -491,7 +491,7 @@
     "id": "poker.tutorial.copy_failed",
     "key": "poker.tutorial.copy_failed",
     "text": {
-      "fr": "Copie refusée : utilisez le clic droit sur le bouton",
+      "fr": "Copie refusée : utilisez le clic droit sur le bouton",
       "en": "Copy refused: right-click the button instead"
     }
   },
@@ -499,7 +499,7 @@
     "id": "poker.tutorial.tip_popup",
     "key": "poker.tutorial.tip_popup",
     "text": {
-      "fr": "« Le navigateur a bloqué l'ouverture de la salle »",
+      "fr": "« Le navigateur a bloqué l'ouverture de la salle »",
       "en": "“The browser blocked the room from opening”"
     }
   },
@@ -515,7 +515,7 @@
     "id": "poker.tutorial.tip_login",
     "key": "poker.tutorial.tip_login",
     "text": {
-      "fr": "« Jira a répondu 401 » (ou 403)",
+      "fr": "« Jira a répondu 401 » (ou 403)",
       "en": "“Jira answered 401” (or 403)"
     }
   },
@@ -523,7 +523,7 @@
     "id": "poker.tutorial.tip_login.text",
     "key": "poker.tutorial.tip_login.text",
     "text": {
-      "fr": "Vous n'êtes pas connecté à Jira dans ce navigateur : connectez-vous, rechargez la page Jira, puis cliquez à nouveau sur le favori.",
+      "fr": "Vous n'êtes pas connecté à Jira dans ce navigateur : connectez-vous, rechargez la page Jira, puis cliquez à nouveau sur le favori.",
       "en": "You are not signed in to Jira in this browser: sign in, reload the Jira page, then click the bookmark again."
     }
   },
@@ -531,7 +531,7 @@
     "id": "poker.tutorial.tip_none",
     "key": "poker.tutorial.tip_none",
     "text": {
-      "fr": "« Aucun ticket trouvé »",
+      "fr": "« Aucun ticket trouvé »",
       "en": "“No issues found”"
     }
   },
@@ -539,7 +539,7 @@
     "id": "poker.tutorial.tip_none.text",
     "key": "poker.tutorial.tip_none.text",
     "text": {
-      "fr": "La page ouverte ne montre aucun ticket : ouvrez un epic, un ticket ou une recherche qui en contient (pas un tableau de bord), ou tapez la clé quand le favori la demande (ex. KP-12).",
+      "fr": "La page ouverte ne montre aucun ticket : ouvrez un epic, un ticket ou une recherche qui en contient (pas un tableau de bord), ou tapez la clé quand le favori la demande (ex. KP-12).",
       "en": "The page you have open shows no issues: open an epic, an issue or a search that has some (not a dashboard), or type the key when the bookmark asks for it (e.g. KP-12)."
     }
   },
@@ -547,7 +547,7 @@
     "id": "poker.tutorial.tip_room",
     "key": "poker.tutorial.tip_room",
     "text": {
-      "fr": "Une autre salle s'ouvre, ou « Salle introuvable »",
+      "fr": "Une autre salle s'ouvre, ou « Salle introuvable »",
       "en": "Another room opens, or “Room not found”"
     }
   },
@@ -555,7 +555,7 @@
     "id": "poker.tutorial.tip_room.text",
     "key": "poker.tutorial.tip_room.text",
     "text": {
-      "fr": "Le favori a été installé depuis une autre salle : supprimez-le, puis glissez à nouveau le bouton depuis cette salle.",
+      "fr": "Le favori a été installé depuis une autre salle : supprimez-le, puis glissez à nouveau le bouton depuis cette salle.",
       "en": "The bookmark was installed from another room: delete it, then drag the button again from this room."
     }
   },
@@ -571,7 +571,7 @@
     "id": "poker.tutorial.tip_nothing.text",
     "key": "poker.tutorial.tip_nothing.text",
     "text": {
-      "fr": "La salle s'ouvre dans un nouvel onglet : regardez-y, « tickets reçus » s'y affiche. Sinon, gardez cette salle ouverte dans le navigateur de l'animateur, puis cliquez à nouveau sur le favori depuis Jira.",
+      "fr": "La salle s'ouvre dans un nouvel onglet : « tickets reçus » s'y affiche. Sinon, gardez cette salle ouverte dans le navigateur de l'animateur, puis cliquez à nouveau sur le favori depuis Jira.",
       "en": "The room opens in a new tab: look there for “issues received”. Otherwise, keep this room open in the host's browser, then click the bookmark again from Jira."
     }
   },
@@ -731,7 +731,7 @@
     "id": "poker.consensus",
     "key": "poker.consensus",
     "text": {
-      "fr": "Consensus !",
+      "fr": "Consensus !",
       "en": "Consensus!"
     }
   },
@@ -835,7 +835,7 @@
     "id": "poker.recap.divided.title",
     "key": "poker.recap.divided.title",
     "text": {
-      "fr": "Story : total dessous divisé par {n}, arrondi au supérieur",
+      "fr": "Story : total dessous divisé par {n}, arrondi au supérieur",
       "en": "Story: total below divided by {n}, rounded up"
     }
   },
@@ -915,7 +915,7 @@
     "id": "poker.error.locked",
     "key": "poker.error.locked",
     "text": {
-      "fr": "La salle est verrouillée : demandez à l'animateur de l'ouvrir.",
+      "fr": "La salle est verrouillée : demandez à l'animateur de l'ouvrir.",
       "en": "The room is locked: ask the host to unlock it."
     }
   },
@@ -931,7 +931,7 @@
     "id": "poker.error.bad_avatar",
     "key": "poker.error.bad_avatar",
     "text": {
-      "fr": "Avatar inconnu : choisissez-en un dans la liste.",
+      "fr": "Avatar inconnu : choisissez-en un dans la liste.",
       "en": "Unknown avatar: pick one from the list."
     }
   },
@@ -963,7 +963,7 @@
     "id": "poker.error.bad_task",
     "key": "poker.error.bad_task",
     "text": {
-      "fr": "Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).",
+      "fr": "Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).",
       "en": "Invalid task number (e.g. 1234 or KP-111: letters, digits and hyphens)."
     }
   },
@@ -979,7 +979,7 @@
     "id": "poker.error.task_limit",
     "key": "poker.error.task_limit",
     "text": {
-      "fr": "Limite de {max} tâches atteinte : créez une nouvelle salle.",
+      "fr": "Limite de {max} tâches atteinte : créez une nouvelle salle.",
       "en": "Limit of {max} tasks reached: create a new room."
     }
   },
@@ -987,7 +987,7 @@
     "id": "poker.error.import_size",
     "key": "poker.error.import_size",
     "text": {
-      "fr": "Import refusé : une liste d'au plus {max} tickets est attendue.",
+      "fr": "Import refusé : une liste d'au plus {max} tickets est attendue.",
       "en": "Import refused: a list of at most {max} issues is expected."
     }
   },
@@ -1003,7 +1003,7 @@
     "id": "poker.error.import_limit",
     "key": "poker.error.import_limit",
     "text": {
-      "fr": "Limite de {max} tâches par salle : créez une nouvelle salle.",
+      "fr": "Limite de {max} tâches par salle : créez une nouvelle salle.",
       "en": "Limit of {max} tasks per room: create a new room."
     }
   },
@@ -1043,7 +1043,7 @@
     "id": "poker.error.bad_nickname",
     "key": "poker.error.bad_nickname",
     "text": {
-      "fr": "Pseudo invalide : 1 à 24 lettres, chiffres, espaces ou . ' - _",
+      "fr": "Pseudo invalide : 1 à 24 lettres, chiffres, espaces ou . ' - _",
       "en": "Invalid nickname: 1 to 24 letters, digits, spaces or . ' - _"
     }
   },
@@ -1051,7 +1051,7 @@
     "id": "poker.error.bad_secret",
     "key": "poker.error.bad_secret",
     "text": {
-      "fr": "Identité du navigateur invalide : rechargez la page.",
+      "fr": "Identité du navigateur invalide : rechargez la page.",
       "en": "Invalid browser identity: reload the page."
     }
   },
@@ -1059,7 +1059,7 @@
     "id": "poker.jira.not_jira",
     "key": "poker.jira.not_jira",
     "text": {
-      "fr": "Planning poker : ouvrez d'abord une page Jira (xxx.atlassian.net), puis cliquez sur ce favori. Ici, glissez-le dans votre barre de favoris.",
+      "fr": "Planning poker : ouvrez d'abord une page Jira (xxx.atlassian.net), puis cliquez sur ce favori. Ici, glissez-le dans votre barre de favoris.",
       "en": "Planning poker: open a Jira page first (xxx.atlassian.net), then click this bookmark. Here, drag it to your bookmarks bar."
     }
   },
@@ -1067,7 +1067,7 @@
     "id": "poker.jira.blocked",
     "key": "poker.jira.blocked",
     "text": {
-      "fr": "Planning poker : le navigateur a bloqué l'ouverture de la salle. Autorisez les fenêtres pop-up pour ce site.",
+      "fr": "Planning poker : le navigateur a bloqué l'ouverture de la salle. Autorisez les fenêtres pop-up pour ce site.",
       "en": "Planning poker: the browser blocked the room from opening. Allow pop-ups for this site."
     }
   },
@@ -1075,7 +1075,7 @@
     "id": "poker.jira.status",
     "key": "poker.jira.status",
     "text": {
-      "fr": "Jira a répondu {status}. Êtes-vous connecté à Jira ?",
+      "fr": "Jira a répondu {status}. Êtes-vous connecté à Jira ?",
       "en": "Jira answered {status}. Are you signed in to Jira?"
     }
   },
@@ -1083,7 +1083,7 @@
     "id": "poker.jira.ask_key",
     "key": "poker.jira.ask_key",
     "text": {
-      "fr": "Planning poker : clé de l'epic ou du ticket à importer (ex. KP-12)",
+      "fr": "Planning poker : clé de l'epic ou du ticket à importer (ex. KP-12)",
       "en": "Planning poker: key of the epic or issue to import (e.g. KP-12)"
     }
   },
@@ -1107,7 +1107,7 @@
     "id": "poker.jira.failed",
     "key": "poker.jira.failed",
     "text": {
-      "fr": "Planning poker : {error}",
+      "fr": "Planning poker : {error}",
       "en": "Planning poker: {error}"
     }
   }

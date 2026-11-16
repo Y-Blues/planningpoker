@@ -95,10 +95,11 @@ h1, h2, h3 { letter-spacing: -.02em; }
 .pp-brand::before { content: ""; width: 34px; height: 28px; flex: none; background: no-repeat center / contain
   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 32'%3E%3Crect x='6' y='3' width='17' height='24' rx='3' fill='%234f46e5' stroke='%23fff' stroke-width='1.6' transform='rotate(-14 14 28)'/%3E%3Crect x='17' y='3' width='17' height='24' rx='3' fill='%23fffdf8' stroke='%23cfc8b8' stroke-width='1.2' transform='rotate(10 26 28)'/%3E%3Ctext x='26' y='20' font-family='system-ui,sans-serif' font-size='11' font-weight='800' text-anchor='middle' fill='%2326286e' transform='rotate(10 26 28)'%3E5%3C/text%3E%3C/svg%3E"); }
 .pp-brand { margin-right: auto; }
-.pp-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.pp-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pp-tools[hidden] { display: none; }
-/* the language switch (ui_web LanguageSwitch, its 🌐 in a label): last on a wide screen, on the brand's line on a phone */
-.pp-header .yc-language { display: inline-flex; align-items: center; gap: 4px; order: 2; cursor: pointer; }
+/* the language switch (ui_web LanguageSwitch, its 🌐 in a label) on the brand's line, then the tools (the DOM's order):
+   on one line on a wide screen, on their own line below 920 px (a host's tools are ~870 px wide in French) */
+.pp-header .yc-language { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .pp-header .yc-language-icon { font-size: 18px; line-height: 1; }
 .pp-header .yc-language-switch { font: inherit; font-size: 14px; color: var(--pp-text); background: var(--pp-surface);
   border: 1px solid var(--pp-line); border-radius: 999px; padding: 6px 10px; box-shadow: var(--pp-shadow-sm); cursor: pointer; }
@@ -369,7 +370,8 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
 .pp-bookmarklet:focus-visible, .pp-queue-item:focus-visible { outline: 3px solid var(--pp-gold); outline-offset: 2px; }
 .pp-tutorial .pp-bookmarklet { margin-top: 10px; padding: 10px 18px; font-size: 16px; box-shadow: var(--pp-shadow); }
 
-/* the Jira how-to: ui_web's Drawer (side panel, a bottom sheet on phones) and StepList, their structure installed by
+/* (ui_web's <style> comes after this sheet: every override below is scoped, .pp-tutorial or .pp-app, to win over it)
+   the Jira how-to: ui_web's Drawer (side panel, a bottom sheet on phones) and StepList, their structure installed by
    the page (ui_web theme.install_controls), in the poker's colours and sizes here */
 :root { --yc-surface: var(--pp-surface); --yc-text: var(--pp-text); --yc-border: var(--pp-line); --yc-accent: var(--pp-accent);
   --yc-accent-text: var(--pp-accent-text); --yc-text-dim: var(--pp-muted); --yc-shadow: var(--pp-shadow);
@@ -440,10 +442,11 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
 .pp-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .pp-footer a:hover { color: var(--pp-accent); }
 
+@media (max-width: 920px) { .pp-header .pp-tools { flex-basis: 100%; } }
+
 /* ------------------------------------------------------------------ phones */
 @media (max-width: 560px) {
   .pp-header { padding: 12px 0; margin-bottom: 12px; }
-  .pp-header .pp-tools { order: 3; flex-basis: 100%; }
   .pp-header .yc-language-switch { padding: 5px 8px; }
   .pp-tools .pp-button { padding: 7px 12px; font-size: 14px; }
   .pp-welcome { margin-top: 2vh; padding: 112px 20px 24px; border-radius: 18px; }
