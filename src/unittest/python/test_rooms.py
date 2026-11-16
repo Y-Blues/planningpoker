@@ -63,6 +63,9 @@ class TestRoomIds(Room):
                          ["ycappuccino.endpoints_storage.crud"])   # ICrud for the texts only:
         public = descriptor["components"]["TokenRights"]["public_rights"]
         self.assertEqual(public, ["read:language", "read:translation"])   # what an anonymous caller may do with it
+        seed = descriptor["components"]["ServiceAccounts"]
+        self.assertEqual((seed["mode"], seed["module_accounts"], seed["module_roles"]), ("module", ["seed"], []))
+        self.assertFalse([right for right in seed["accounts"]["seed"] if "poker" in right or "*" in right])   # the texts only
         rights = TokenRights(items=None, public_rights=public)
         for action, item, allowed in (("read", "translation", True), ("read", "language", True), ("write", "translation", False),
                                       ("read", ROOM_ITEM, False), ("read", PARTICIPANT_ITEM, False), ("read", TASK_ITEM, False),

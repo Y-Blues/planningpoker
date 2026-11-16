@@ -15,7 +15,10 @@ parts:
     # its own texts seeded beside them (seed/translations.json, followed: a text edited since is kept), read by the page
     # over ICrud as the site reads its own (ycappuccino.ui.i18n); the anonymous caller's rights: those two reads only
     include: [ycappuccino.ui_content/profiles/platform_texts.yml]
-    bundles: [ycappuccino.storage.seed, ycappuccino.endpoints_storage.crud, ycappuccino.permissions.token_rights]
+    # the seed writes as the local service account `seed` (ServiceAccounts module mode: nothing written to an identity,
+    # resolved by TokenRights here), holding the texts' writes only
+    bundles: [ycappuccino.storage.seed, ycappuccino.endpoints_storage.crud, ycappuccino.permissions.token_rights,
+              ycappuccino.permissions.service_accounts]
   services:
     bundles: [ycappuccino.planningpoker.rooms, ycappuccino.planningpoker.rate_limits,
               ycappuccino.planningpoker.room_events, ycappuccino.planningpoker.topic_access,
@@ -30,6 +33,12 @@ http:
 components:
   TokenRights:
     public_rights: ["read:language", "read:translation"]
+  ServiceAccounts:
+    mode: module
+    module_roles: []
+    module_accounts: [seed]
+    accounts:
+      seed: ["read:language", "write:language", "read:translation", "write:translation", "read:seedRecord", "write:seedRecord"]
   SeedLoader:
     sources:
       - id: planningpoker-texts
