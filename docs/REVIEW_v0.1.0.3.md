@@ -168,3 +168,22 @@ static/poker.css, static/jira_bookmarklet.js, and the staged e2e screenshots in 
       bookmarks bar for good. A room-independent bookmarklet (it opens the poker, and the room page that answers
       "ready" picks the issues up) would make "once" true, and is worth a later phase;
     - 8's index.html `lang` before the texts load: not seen in the screenshots, still open as noted.
+
+## ARCHITECTE confirmation
+
+Date: 2026-11-16. Diff c2d1f14..b47ad0b (40b5efd, b47ad0b). Unit tests rerun: 94 OK. Stage e2e as reported by the
+builder: FR 56/56, EN 55/55.
+
+**Verdict: PASS**
+
+- **Major 2 is fixed.** `strings.packaged` falls back to the built-in texts plus the shipped seed (package data, the
+  same wheel the browser loads), shown beside the named error and the ERROR log. The test now asserts a real label
+  rather than a key.
+- **Major 3 is fixed.** `shared=True` is reverted on the 4 poker items, along with the false docstring.
+- **Wording**: the English quotes are now “ ”, and the French « Rien ne se passe » tip no longer mentions accounts.
+- **ERGONOME changes**: the new tip_room text and the once-per-room wording are fine.
+- **_apply**: a page that was joined and gets a catching-up state with `me: None` is now told it was removed. This is
+  sound: open_room and the not-found path reset `_me` first, and pings and topic messages keep the current `_me`.
+- **Minors 4-7 stay logged for later**: strings.load could reuse ui.i18n.load_locale; ITEMS as component properties;
+  generic Drawer/StepList CSS in poker.css; anonymous ICrud reads not throttled. Also: `<html>` has no lang before the
+  texts load.
