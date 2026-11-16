@@ -141,7 +141,7 @@ def jira_import(context, alice, bob):
           len(titles) == 5 and titles[0] == L["tutorial"][0] and titles[2] == L["tutorial"][1] and
           alice.locator(".pp-tutorial ol.yc-steps .yc-step-figure").count() == 5 and
           alice.locator(".pp-tutorial ol.yc-steps > li:nth-child(2) a.pp-bookmarklet").count() == 1 and
-          L["readonly"] in alice.inner_text(".pp-tutorial-readonly") and alice.locator(".pp-tutorial ul.yc-steps > li").count() == 5, str(titles))
+          L["readonly"] in alice.inner_text(".pp-tutorial-readonly") and alice.locator(".pp-tutorial ul.yc-steps > li").count() == 6, str(titles))
     alice.screenshot(path=os.path.join(SHOTS, "6_import_help.png"))
     alice.locator(".pp-tutorial .yc-drawer-body").screenshot(path=os.path.join(SHOTS, "6c_tutorial_panel.png"))
     alice.set_viewport_size({"width": 360, "height": 780})
@@ -412,6 +412,7 @@ def run(playwright):
                 time.sleep(1)
         bob.reload()
         bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
+        alice.wait_for_timeout(8000)   # the pages kept open reconnect (the client's backoff) and catch up
         check("after a server restart, a reloaded page finds the room, its seats and its recap",
               bob.inner_text(".pp-recap") == before and bob.locator(".pp-seat").count() == 3, bob.inner_text(".pp-recap")[:80])
 

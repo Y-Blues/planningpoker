@@ -36,6 +36,7 @@ def render(b: Builder, body: Any, on_copy: Callable[[], Awaitable[None]]) -> tup
         Step("poker.tutorial.tip_popup", "poker.tutorial.tip_popup.text"),
         Step("poker.tutorial.tip_login", "poker.tutorial.tip_login.text"),
         Step("poker.tutorial.tip_none", "poker.tutorial.tip_none.text"),
+        Step("poker.tutorial.tip_room", "poker.tutorial.tip_room.text"),
         Step("poker.tutorial.tip_nothing", "poker.tutorial.tip_nothing.text"),
     ], numbered=False, label="poker.tutorial.tips")
     return found["link"], found["copy"]

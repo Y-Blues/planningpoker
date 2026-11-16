@@ -95,3 +95,76 @@ The builder found the same refusal on its first stage run and fixed it in c2d1f1
 
 **Verdict stays FAIL**: findings 2 (major: fallback page of bare keys) and 3 (major: `shared=True` unjustified) remain
 open; minors 4-8 to fix or accept.
+
+## ERGONOME round 1
+
+Date: 2026-11-16. Scope: 40b5efd vs v0.1.0.2: translations.json (FR + EN), page/poker_page.py, page/tutorial.py,
+static/poker.css, static/jira_bookmarklet.js, and the staged e2e screenshots in /mnt/Lexar/linux_offload/poker-en/shots/{fr,en}
+(EN 55/55 passed; the FR run was being replayed while I reviewed, and the previous FR run passed 56/56).
+
+**Verdict: PASS** (0 blocker, 1 major to fix in the texts before release if possible, minors logged for later)
+
+1. **major**, the how-to promises "once", but the bookmark belongs to one room. jira.py bakes the room's URL (and the
+   page's language) into the bookmarklet, yet the hint ("A bookmark to install once" / « Un favori à installer une
+   fois »), the intro ("installed only once" / « installé une seule fois ») and step 2 ("You only do this once" /
+   « Vous ne le faites qu'une fois ») all say "once". This holds while a team keeps the same room (a 30-day sliding
+   expiry). It breaks on a new room: the task limit says "create a new room", and teams often make one per session.
+   The old bookmark then opens the OLD room (the issues land there) or shows "Room not found", and no tip covers that.
+   Text-only fix: "once per room" (« une fois par salle »), plus a tip: « Une autre salle s'ouvre, ou "Salle
+   introuvable" : glissez à nouveau le bouton depuis cette salle » / "Another room opens, or "Room not found": drag
+   the button again from this room". Later, the generic fix is a bookmarklet that does not depend on the room.
+2. **minor**, tip « Rien ne se passe dans la salle » / "Nothing happens in the room": the bookmarklet opens the room
+   in a NEW tab (window.open), and the banner "N issues received…" appears there, not in the tab the host already has
+   open. The likeliest cause of "nothing happens" is looking at the old tab. Say so: "the room opens in a new tab:
+   look there". The fixed wording « dans le navigateur de l'animateur » is better than the ARCHITECTE's suggested
+   « en tant qu'animateur » (agreed with the change made).
+3. **minor**, figure vs text: tutorial.py:_browser hard-codes the keys "Ctrl / ⌘", "Shift" and "B". The French text
+   says « Maj » while the figure shows "Shift". The figure is also a visible text that is not a key, which goes
+   against ARCHITECTE 10's "no inline text". Use a key (« Maj » / "Shift").
+4. **minor**, English wording, natural overall, with the right vocabulary (Average, Closest card, Final estimate, Vote
+   again, Reveal, host, Summary, Sub-task, issues, Up next, Dismiss, "{voted} of {total} voted"). Possible polish:
+   - intro: "Pull the issues from a Jira epic, issue or search into this room";
+   - readonly: "Jira is read-only here: nothing is ever written or changed in it";
+   - tip_none: "The page you have open shows no issues";
+   - "No issue found" -> "No issues found" (the alert and the tip title together);
+   - "recognised" -> "recognized" (the other texts read as US English);
+   - the hint, "…: the step-by-step guide", reads like a caption in both languages. Try "Install a bookmark once,
+     then import from Jira in one click." (and see 1);
+   - "Σ below" is understandable only through its tooltip; acceptable.
+5. **minor**, Edge: in the drag tip, "right-click the bookmarks bar › Add page" is Chrome's menu. Edge calls it the
+   "favorites bar", and its menu entry differs. Say "Chrome: …; Edge: favorites bar › Add this page to favorites",
+   or keep Chrome only.
+6. **minor**, language switch: it is findable (top right, on the welcome and in the room, a native select). The
+   options are endonyms (Français / English), the Auto label is translated (« Auto (navigateur) » / "Auto
+   (browser)"), it has the aria-label Language, the choice is kept, and it switches at once (e2e checked it both ways,
+   on the welcome). Two gaps:
+   - nothing visible says "language" before the user opens it. A 🌐 before the label would help a visitor whose
+     browser has the wrong language;
+   - at 360 px it wraps onto its own header line (shots 4_revealed_mobile, 9b), about 45 px taken from the room.
+     Fit it on the tools row (a shorter "🌐 Auto"), or accept it.
+   The switch in the room is not checked by the e2e. The code relabels the page, redraws it and rebuilds the
+   bookmarklet's texts, which reads fine.
+7. **minor**, e2e evidence: 6c_tutorial_panel and 6b are captures of a scrolled panel, so steps 3 to 5, the read-only
+   note and the five tips never appear in any screenshot (the DOM checks do count them: 5 steps, 5 figures, read-only,
+   5 tips). Add a capture after scrolling the panel to its end.
+8. **ok**, Jira how-to otherwise meets the brief:
+   - it is opened from the import area (host only), closes (×, focus back on the button), is a side panel on desktop
+     and a bottom sheet at 360 px without horizontal scroll, and reads well at 360;
+   - five numbered steps, one action each, short sentences: Ctrl/⌘+Shift+B, drag (the button is right under step 2),
+     open Jira, click the bookmark, what is seen (Import, Up next, Epic › Story › Sub-task);
+   - the figures are helpful (the dashed target bar, the dropped bookmark, the address);
+   - "you need a computer" is said up front, and "read only" in a visible box;
+   - the tips cover the drag fallback (right-click, or Copy the bookmark), pop-ups, 401/403 and no issue found, and
+     their titles quote the bookmarklet's real alerts;
+   - the 2 known text fixes are applied in 40b5efd: EN “ ” quotes, and « dans le navigateur de l'animateur ».
+9. **ok**, French unchanged from v0.1.0.2: every French literal removed by the diff (page, view, rooms, bookmarklet)
+   is identical in seed fr. The only additions are the new how-to's entry (« 📥 Importer depuis Jira » plus its hint)
+   and its panel. The French decimal comma is kept (« 5,3 », shot fr/4_revealed_mobile).
+10. **architecture, challenge/agree with ARCHITECTE round 1**:
+    - 2 and 3 are resolved in 40b5efd: strings.packaged reads the shipped seed beside the error, and `shared` is
+      removed from the models;
+    - I agree with 6 (poker.css duplicates the Drawer and StepList structure; ui_web should ship a structural sheet);
+    - 1 above is also a design point: the bookmarklet binds a room and a language into a link meant to live in the
+      bookmarks bar for good. A room-independent bookmarklet (it opens the poker, and the room page that answers
+      "ready" picks the issues up) would make "once" true, and is worth a later phase;
+    - 8's index.html `lang` before the texts load: not seen in the screenshots, still open as noted.

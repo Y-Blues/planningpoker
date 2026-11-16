@@ -337,7 +337,8 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         if task != ((self._state or {}).get("task") or {}).get("id"):
             self._chosen = ""
         self._state, self._me = state, me
-        if was_joined and me is not None and not any(person["id"] == me for person in state.get("participants") or []):
+        if was_joined and (me is None or not any(person["id"] == me for person in state.get("participants") or [])):
+            # removed, also while this page was disconnected (its catching-up state then answers "not joined")
             self._me = None
             self._error("poker.removed")
         self._draw()

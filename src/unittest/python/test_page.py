@@ -207,6 +207,13 @@ class TestTable(Page):
         await self.open("/#" + ROOM, answer={**state(), "me": "b"})
         await self.page.on_message(room_topic(ROOM), {**state(people=("a",)), "stamp": 2})
         self.assertIn("retiré", self.page._ui["error"].text)
+
+    async def test_a_participant_removed_while_disconnected_is_told_on_catching_up(self):
+        await self.open("/#" + ROOM, answer={**state(), "me": "b"})
+        self.poker.answer = {**state(people=("a",)), "stamp": 2, "me": None}   # the resubscription's state: not joined
+        await self.page.subscription_changed(room_topic(ROOM), True, "")
+        self.assertIn("retiré", self.page._ui["error"].text)
+        self.assertFalse(self.hidden("welcome"))
         self.assertFalse(self.hidden("welcome"))
 
 

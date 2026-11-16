@@ -283,8 +283,8 @@
     "id": "poker.import.hint",
     "key": "poker.import.hint",
     "text": {
-      "fr": "Un favori à installer une fois, puis un clic dans Jira : le mode d'emploi pas à pas.",
-      "en": "A bookmark to install once, then one click in Jira: the step-by-step guide."
+      "fr": "Un favori à installer une fois par salle, puis un clic dans Jira : voici le mode d'emploi pas à pas.",
+      "en": "A bookmark to install once per room, then one click in Jira: here is the step-by-step guide."
     }
   },
   {
@@ -323,8 +323,8 @@
     "id": "poker.tutorial.intro",
     "key": "poker.tutorial.intro",
     "text": {
-      "fr": "Faites venir dans cette salle les tickets d'un epic, d'un ticket ou d'une recherche Jira. Il faut un ordinateur et un favori spécial, installé une seule fois.",
-      "en": "Bring the issues of a Jira epic, issue or search into this room. You need a computer and a special bookmark, installed only once."
+      "fr": "Faites venir dans cette salle les tickets d'un epic, d'un ticket ou d'une recherche Jira. Il faut un ordinateur et un favori spécial, installé une fois pour cette salle.",
+      "en": "Bring the issues of a Jira epic, issue or search into this room. You need a computer and a special bookmark, installed once for this room."
     }
   },
   {
@@ -363,8 +363,8 @@
     "id": "poker.tutorial.s2.text",
     "key": "poker.tutorial.s2.text",
     "text": {
-      "fr": "Cliquez sur le bouton et gardez le clic enfoncé, montez jusqu'à la barre, puis relâchez. Vous ne le faites qu'une fois.",
-      "en": "Click the button and hold, move up to the bar, then let go. You only do this once."
+      "fr": "Cliquez sur le bouton et gardez le clic enfoncé, montez jusqu'à la barre, puis relâchez. Une fois par salle : ce favori ouvre toujours cette salle.",
+      "en": "Click the button and hold, move up to the bar, then let go. Once per room: this bookmark always opens this room."
     }
   },
   {
@@ -517,6 +517,22 @@
     "text": {
       "fr": "La page ouverte ne montre aucun ticket : ouvrez un epic, un ticket ou une recherche qui en contient (pas un tableau de bord), ou tapez la clé quand le favori la demande (ex. KP-12).",
       "en": "The open page shows no issue: open an epic, an issue or a search that has some (not a dashboard), or type the key when the bookmark asks for it (e.g. KP-12)."
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_room",
+    "key": "poker.tutorial.tip_room",
+    "text": {
+      "fr": "Une autre salle s'ouvre, ou « Salle introuvable »",
+      "en": "Another room opens, or “Room not found”"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_room.text",
+    "key": "poker.tutorial.tip_room.text",
+    "text": {
+      "fr": "Le favori a été installé depuis une autre salle : supprimez-le, puis glissez à nouveau le bouton depuis cette salle.",
+      "en": "The bookmark was installed from another room: delete it, then drag the button again from this room."
     }
   },
   {
