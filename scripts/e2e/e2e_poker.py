@@ -4,7 +4,9 @@ unknown room, an absent host's handover; the first load's size measured; screens
     PYTHON=... uv run --no-project --with playwright python scripts/e2e/e2e_poker.py <screenshot dir>
 Runs with prefers-reduced-motion (POKER_E2E_MOTION=1: with the animations).
 Starts and stops its own server (POKER_E2E_PORT, default 8197), or tests POKER_E2E_BASE (a deployment, its prefix
-included: http://localhost:8096/planningpoker/)."""
+included: http://localhost:8096/planningpoker/). POKER_E2E_LANG=en: the browsers are English (default fr: French), the
+texts checked in that language; the header's language switch is checked both ways. POKER_E2E_RESTART: a shell command
+restarting the server mid-session (a deployment's container): the room, its recap and the open pages carry on."""
 
 import json
 import os
@@ -26,6 +28,24 @@ BOOT, T = 180000, 20000
 ABSENT = 25  # the server's host_absent_seconds for the run (the page pings every 15 s)
 # the page's animations off (prefers-reduced-motion), so the screenshots show settled pages; POKER_E2E_MOTION=1 keeps them
 MOTION = "no-preference" if os.environ.get("POKER_E2E_MOTION") else "reduce"
+LANG = os.environ.get("POKER_E2E_LANG", "fr")
+LOCALE = {"fr": "fr-FR", "en": "en-US"}[LANG]
+TEXTS = {   # what the page says, written here by hand (not read from strings.py: the test checks the wording)
+    "fr": {"import_help": "📥 Importer depuis Jira", "tutorial": ["Affichez la barre de favoris", "Ouvrez Jira"], "readonly": "rien n'est jamais écrit", "received": "4 tickets reçus de test.atlassian.net",
+           "footer": "Propulsé par iPOPO et YCappuccino", "host": "animateur", "copy": "Copier le lien", "copied": "Lien copié ✓",
+           "task": "Tâche {}", "join": "Rejoindre la salle", "taken": "déjà pris", "average": "Moyenne", "nearest": "Carte la plus proche",
+           "average_value": "5,3", "revote": "Revoter", "removed": "retiré", "remove": "Retirer {}", "lock": "Verrouiller",
+           "unlock": "Déverrouiller", "locked": "verrouillée", "not_found": "Salle introuvable.", "create": "Créer une salle",
+           "recap": ["Tâche", "Estimation", "Σ dessous", "÷ 8"], "kinds": ["Epic", "Story", "Sous-tâche"], "html": "fr"},
+    "en": {"import_help": "📥 Import from Jira", "tutorial": ["Show the bookmarks bar", "Open Jira"], "readonly": "nothing is ever written", "received": "4 issues received from test.atlassian.net",
+           "footer": "Powered by iPOPO and YCappuccino", "host": "host", "copy": "Copy link", "copied": "Link copied ✓",
+           "task": "Task {}", "join": "Join the room", "taken": "already taken", "average": "Average", "nearest": "Closest card",
+           "average_value": "5.3", "revote": "Vote again", "removed": "removed", "remove": "Remove {}", "lock": "Lock",
+           "unlock": "Unlock", "locked": "locked", "not_found": "Room not found.", "create": "Create a room",
+           "recap": ["Task", "Estimate", "Σ below", "÷ 8"], "kinds": ["Epic", "Story", "Sub-task"], "html": "en"},
+}
+L = TEXTS[LANG]
+OTHER = TEXTS["en" if LANG == "fr" else "fr"]
 results = []
 
 
@@ -49,7 +69,7 @@ def start_server():
 
 
 def open_page(browser, url, **options):
-    context = browser.new_context(locale="fr-FR", reduced_motion=MOTION, **options)
+    context = browser.new_context(locale=LOCALE, reduced_motion=MOTION, **options)
     page = context.new_page()
     page.on("console", lambda message: message.type == "error" and print("  console:", message.text[:200]))
     page.goto(url)
@@ -106,15 +126,33 @@ def fake_jira(context):
 def jira_import(context, alice, bob):
     """the bookmarklet (its real source, from the link the page offers) run on a fake Jira page: pagination, children and
     grandchildren, the handshake with the room's page, the host's confirmation, the queue, the recap tree and its totals"""
-    check("the import help and the bookmarklet link are offered to the host only", alice.locator(".pp-import-help summary").inner_text() ==
-          "Importer depuis Jira" and alice.locator("a.pp-bookmarklet").count() == 1 and bob.locator(".pp-import:visible").count() == 0)
+    check("the import help and the bookmarklet link are offered to the host only", alice.locator(".pp-tutorial-open").inner_text() ==
+          L["import_help"] and alice.locator("a.pp-bookmarklet").count() == 1 and bob.locator(".pp-import:visible").count() == 0)
     href = alice.get_attribute("a.pp-bookmarklet", "href")
     script = urllib.parse.unquote(href[len("javascript:"):])
     secret = alice.evaluate("localStorage.getItem('planningpoker.secret')")
     check("the link holds the room's address, never the secret", secret and secret not in href and
           alice.evaluate("location.href") in script and "\n" not in script)
-    alice.click(".pp-import-help summary")
-    alice.screenshot(path=os.path.join(SHOTS, "6_import_help.png"), full_page=True)
+    alice.click(".pp-tutorial-open")
+    alice.wait_for_selector(".pp-tutorial[aria-hidden=false]", timeout=T)
+    alice.wait_for_timeout(400)   # the panel's slide
+    titles = alice.locator(".pp-tutorial ol.yc-steps .yc-step-title").all_inner_texts()
+    check("the Jira how-to: five numbered steps, one figure each, the bookmark to drag in step 2, read only said, tips",
+          len(titles) == 5 and titles[0] == L["tutorial"][0] and titles[2] == L["tutorial"][1] and
+          alice.locator(".pp-tutorial ol.yc-steps .yc-step-figure").count() == 5 and
+          alice.locator(".pp-tutorial ol.yc-steps > li:nth-child(2) a.pp-bookmarklet").count() == 1 and
+          L["readonly"] in alice.inner_text(".pp-tutorial-readonly") and alice.locator(".pp-tutorial ul.yc-steps > li").count() == 5, str(titles))
+    alice.screenshot(path=os.path.join(SHOTS, "6_import_help.png"))
+    alice.locator(".pp-tutorial .yc-drawer-body").screenshot(path=os.path.join(SHOTS, "6c_tutorial_panel.png"))
+    alice.set_viewport_size({"width": 360, "height": 780})
+    alice.wait_for_timeout(400)
+    check("the how-to fits a 360px screen (a bottom sheet)", alice.evaluate(
+        "document.documentElement.scrollWidth <= window.innerWidth && document.querySelector('.pp-tutorial').getBoundingClientRect().right <= window.innerWidth"))
+    alice.screenshot(path=os.path.join(SHOTS, "6b_import_help_360.png"))
+    alice.set_viewport_size({"width": 1280, "height": 720})
+    alice.click(".pp-tutorial .yc-drawer-close")
+    alice.wait_for_selector(".pp-tutorial[aria-hidden=true]", state="attached", timeout=T)
+    check("the how-to closes, the focus back on its button", alice.evaluate("document.activeElement.classList.contains('pp-tutorial-open')"))
     if shutil.which("node"):
         syntax = subprocess.run(["node", "--check", "-"], input=f"(async()=>{{{script}}})", text=True, capture_output=True)
         check("the minified bookmarklet parses", syntax.returncode == 0, syntax.stderr[:200])
@@ -127,7 +165,7 @@ def jira_import(context, alice, bob):
     room.on("console", lambda message: message.type == "error" and print("  console:", message.text[:200]))
     room.wait_for_selector(".pp-import-confirm:not([hidden])", timeout=BOOT)
     check("tickets received from the Jira site, waiting for the host", room.inner_text(".pp-import-text") ==
-          "4 tickets reçus de test.atlassian.net", room.inner_text(".pp-import-text"))
+          L["received"], room.inner_text(".pp-import-text"))
     check("Jira was only read (GET), page by page, children then grandchildren", seen and all(m == "GET" for m, _ in seen)
           and [q["jql"][0] for _, q in seen] == ["key = KP-1 OR parent = KP-1"] * 2 + ["parent in (KP-2,KP-4)"], str(seen))
     check("nothing is queued before the confirmation", room.locator(".pp-queue-item").count() == 0)
@@ -175,6 +213,10 @@ def jira_import(context, alice, bob):
     check("a hand-typed task joins its parent, never played: a group", flat["9001"][0] == "pp-depth-1" and flat["EPIC-9"][3] == "8" and
           flat["EPIC-9"][2] == "–", str([flat.get("9001"), flat.get("EPIC-9")]))
     check("the grand total (101 and the three above)", bob.inner_text(".pp-recap-table tfoot").split()[-1] == "29", bob.inner_text(".pp-recap-table tfoot"))
+    heads = bob.eval_on_selector_all(".pp-recap-table thead th", "cells => cells.map(c => c.textContent)")
+    kinds = bob.eval_on_selector_all(".pp-recap-table .pp-kind", "cells => [...new Set(cells.map(c => c.textContent))]")
+    check("the recap's headers and badges in the page's language", heads == L["recap"] and sorted(kinds) == sorted(L["kinds"]) and
+          bob.inner_text(".pp-recap-table tfoot").split()[0] == "Total", f"{heads} {kinds}")
     bob.screenshot(path=os.path.join(SHOTS, "9_recap_tree.png"), full_page=True)
     bob.set_viewport_size({"width": 360, "height": 800})
     bob.evaluate("new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))")   # the narrow styles applied
@@ -202,7 +244,7 @@ def run(playwright):
     browser = playwright.chromium.launch()
     # first load, measured: everything the page downloads until it is drawn
     sizes = {"own": 0, "cdn": 0}
-    context = browser.new_context(locale="fr-FR", reduced_motion=MOTION, permissions=["clipboard-read", "clipboard-write"])
+    context = browser.new_context(locale=LOCALE, reduced_motion=MOTION, permissions=["clipboard-read", "clipboard-write"])
     alice = context.new_page()
     alice.on("console", lambda message: message.type == "error" and print("  console:", message.text[:300]))
 
@@ -229,7 +271,21 @@ def run(playwright):
     alice.screenshot(path=os.path.join(SHOTS, "1_welcome.png"), full_page=True)
 
     check("footer credits iPOPO and YCappuccino", alice.locator(".pp-footer a[target=_blank][rel=noopener]").count() == 2
-          and "Propulsé par iPOPO et YCappuccino" in alice.inner_text(".pp-footer"))
+          and L["footer"] in alice.inner_text(".pp-footer"))
+    check("the page speaks the browser's language", alice.evaluate("document.documentElement.lang") == L["html"] and
+          alice.inner_text(".pp-welcome button[type=submit]") == L["create"], alice.inner_text(".pp-welcome button[type=submit]"))
+    other = "en" if LANG == "fr" else "fr"
+    alice.select_option("select.yc-language-switch", other)
+    alice.wait_for_selector(f".pp-welcome button[type=submit]:text-is('{OTHER['create']}')", timeout=T)
+    check("the header's switch changes the language at once", alice.evaluate("document.documentElement.lang") == other and
+          OTHER["footer"] in alice.inner_text(".pp-footer"))
+    alice.screenshot(path=os.path.join(SHOTS, f"1_welcome_switched_{other}.png"), full_page=True)
+    alice.reload()
+    alice.wait_for_selector(f".pp-welcome button[type=submit]:text-is('{OTHER['create']}')", timeout=BOOT)
+    check("the switch's choice is kept by the browser", alice.evaluate("localStorage.getItem('planningpoker.language')") == other)
+    alice.select_option("select.yc-language-switch", "auto")
+    alice.wait_for_selector(f".pp-welcome button[type=submit]:text-is('{L['create']}')", timeout=T)
+    check("back to Auto: the browser's language again", alice.evaluate("document.documentElement.lang") == L["html"])
     alice.click(".pp-welcome .pp-avatar-choice >> nth=2")
     alice.wait_for_selector(".pp-welcome .pp-avatar-choice[aria-pressed=true]", timeout=T)
     check("an avatar is selected on the join form", alice.locator(".pp-welcome .pp-avatar-choice[aria-pressed=true]").count() == 1)
@@ -240,17 +296,17 @@ def run(playwright):
     alice.wait_for_selector(".pp-room:not([hidden])", timeout=T)
     room = alice.evaluate("location.hash").lstrip("#")
     check("a room is created, its id unguessable", len(room) >= 32, room[:6] + "…")
-    check("the creator hosts it", "animateur" in alice.inner_text(".pp-me"))
-    alice.click("text=Copier le lien")
-    alice.wait_for_selector("text=Lien copié ✓", timeout=T)
+    check("the creator hosts it", L["host"] in alice.inner_text(".pp-me"))
+    alice.click(f"text={L['copy']}")
+    alice.wait_for_selector(f"text={L['copied']}", timeout=T)
     check("the room's link is copied", alice.evaluate("navigator.clipboard.readText()") == BASE + "#" + room)
     alice.fill("#pp-task-number", "101")
     alice.click(".pp-task-form button")
-    alice.wait_for_selector("text=Tâche 101", timeout=T)
+    alice.wait_for_selector("text=" + L["task"].format(101), timeout=T)
 
     link = BASE + "#" + room
     bob = open_page(browser, link)
-    bob.wait_for_selector("text=Rejoindre la salle", timeout=T)
+    bob.wait_for_selector("text=" + L["join"], timeout=T)
     enter(bob, "Bob")
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=T)
     chloe = open_page(browser, link, viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
@@ -273,7 +329,7 @@ def run(playwright):
     bob.fill("#pp-profile-name", "Alice")
     bob.keyboard.press("Enter")
     bob.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("a taken nickname is refused, the panel stays open", "déjà pris" in bob.inner_text(".pp-error") and
+    check("a taken nickname is refused, the panel stays open", L["taken"] in bob.inner_text(".pp-error") and
           bob.locator("#pp-profile:visible").count() == 1)
     bob.fill("#pp-profile-name", "Bobby")
     bob.click("#pp-profile .pp-avatar-choice >> nth=7")
@@ -300,10 +356,10 @@ def run(playwright):
     chloe.wait_for_selector("#pp-profile", state="hidden", timeout=T)
 
     mallory = open_page(browser, link)
-    mallory.wait_for_selector("text=Rejoindre la salle", timeout=T)
+    mallory.wait_for_selector("text=" + L["join"], timeout=T)
     enter(mallory, "bobby")
     mallory.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("someone else cannot take Bob's new nickname", "déjà pris" in mallory.inner_text(".pp-error"),
+    check("someone else cannot take Bob's new nickname", L["taken"] in mallory.inner_text(".pp-error"),
           mallory.inner_text(".pp-error"))
     check("Bob's seat is untouched", alice.locator(".pp-seat").count() == 3)
 
@@ -319,13 +375,13 @@ def run(playwright):
     alice.click(".pp-reveal")
     bob.wait_for_selector(".pp-results:not([hidden])", timeout=T)
     stats = dict(zip(bob.locator(".pp-stat dt").all_inner_texts(), bob.locator(".pp-stat dd").all_inner_texts()))
-    check("revealed: average, nearest card, min, max", stats.get("Moyenne") == "5,3" and
-          stats.get("Carte la plus proche") == "5" and stats.get("Min") == "3" and stats.get("Max") == "8", str(stats))
+    check("revealed: average, nearest card, min, max", stats.get(L["average"]) == L["average_value"] and
+          stats.get(L["nearest"]) == "5" and stats.get("Min") == "3" and stats.get("Max") == "8", str(stats))
     check("everyone sees each vote", sorted(chloe.locator(".pp-card.is-up").all_inner_texts()) == ["3", "5", "8"])
     alice.screenshot(path=os.path.join(SHOTS, "3_revealed.png"), full_page=True)
     chloe.screenshot(path=os.path.join(SHOTS, "4_revealed_mobile.png"), full_page=True)
 
-    alice.click("text=Revoter")
+    alice.click(f"text={L['revote']}")
     bob.wait_for_function("document.querySelectorAll('.pp-card.is-up').length === 0", timeout=T)
     check("revote hides and clears the votes", bob.locator(".pp-card.is-down").count() == 0)
     for page, card in ((alice, "8"), (bob, "8"), (chloe, "8")):
@@ -338,24 +394,40 @@ def run(playwright):
     check("the host sets the final estimate", True)
     alice.fill("#pp-task-number", "102")
     alice.click(".pp-task-form button")
-    bob.wait_for_selector("text=Tâche 102", timeout=T)
+    bob.wait_for_selector("text=" + L["task"].format(102), timeout=T)
     check("recap of finished tasks", "101" in bob.inner_text(".pp-recap") and "13" in bob.inner_text(".pp-recap"),
           bob.inner_text(".pp-recap").replace("\n", " | "))
 
     jira_import(context, alice, bob)
 
+    if os.environ.get("POKER_E2E_RESTART"):   # a deploy mid-session: the room is in the storage, the pages reconnect
+        before = bob.inner_text(".pp-recap")
+        subprocess.run(os.environ["POKER_E2E_RESTART"], shell=True, check=True)
+        for _ in range(120):
+            try:
+                with urllib.request.urlopen(BASE + "robots.txt", timeout=2) as response:
+                    if response.status == 200:
+                        break
+            except Exception:
+                time.sleep(1)
+        bob.reload()
+        bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
+        check("after a server restart, a reloaded page finds the room, its seats and its recap",
+              bob.inner_text(".pp-recap") == before and bob.locator(".pp-seat").count() == 3, bob.inner_text(".pp-recap")[:80])
+
     alice.hover(".pp-seat[data-participant] >> nth=2")
-    alice.click(".pp-remove[aria-label='Retirer Chloé']")
+    alice.click(f".pp-remove[aria-label='{L['remove'].format('Chloé')}']")
     chloe.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("the host removes a participant", "retiré" in chloe.inner_text(".pp-error") and
+    check("the host removes a participant" + (" (pages kept open across the restart)" if os.environ.get("POKER_E2E_RESTART") else ""),
+          L["removed"] in chloe.inner_text(".pp-error") and
           alice.locator(".pp-seat").count() == 2)
-    alice.click("text=Verrouiller")
-    alice.wait_for_selector("text=Déverrouiller", timeout=T)
+    alice.click(f"text={L['lock']}")
+    alice.wait_for_selector(f"text={L['unlock']}", timeout=T)
     dan = open_page(browser, link)
-    dan.wait_for_selector("text=Rejoindre la salle", timeout=T)
+    dan.wait_for_selector("text=" + L["join"], timeout=T)
     enter(dan, "Dan")
     dan.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("a locked room refuses newcomers", "verrouillée" in dan.inner_text(".pp-error"), dan.inner_text(".pp-error"))
+    check("a locked room refuses newcomers", L["locked"] in dan.inner_text(".pp-error"), dan.inner_text(".pp-error"))
     bob.reload()
     bob.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
     check("a known browser comes back as itself, even locked", "Bobby" in bob.inner_text(".pp-me"))
@@ -363,7 +435,7 @@ def run(playwright):
     # host handover: Alice (the host) leaves (her Jira tab, also hers, is closed: it would keep pinging); once unseen for ABSENT seconds, Bob (the next joined) hosts
     if not os.environ.get("POKER_E2E_BASE"):
         alice.close()
-        bob.wait_for_function("document.querySelector('.pp-me').innerText.includes('animateur')", timeout=(ABSENT + 30) * 1000)
+        bob.wait_for_function(f"document.querySelector('.pp-me').innerText.includes('{L['host']}')", timeout=(ABSENT + 30) * 1000)
         check("an absent host hands the room to the next participant", True)
         check("the new host has the host's controls", bob.locator(".pp-task-form:not([hidden])").count() == 1 or
               bob.locator(".pp-reveal").count() == 1)
@@ -371,11 +443,11 @@ def run(playwright):
         back.goto(link)
         back.wait_for_selector(".pp-room:not([hidden])", timeout=BOOT)
         check("the old host comes back as a participant", "Alice" in back.inner_text(".pp-me") and
-              "animateur" not in back.inner_text(".pp-me") and back.locator(".pp-reveal").count() == 0)
+              L["host"] not in back.inner_text(".pp-me") and back.locator(".pp-reveal").count() == 0)
 
     stranger = open_page(browser, BASE + "#" + secrets.token_urlsafe(24))
     stranger.wait_for_selector(".pp-error:not([hidden])", timeout=T)
-    check("an unknown room is not found", stranger.inner_text(".pp-error") == "Salle introuvable.")
+    check("an unknown room is not found", stranger.inner_text(".pp-error") == L["not_found"])
     bob.screenshot(path=os.path.join(SHOTS, "5_recap_locked.png"), full_page=True)
     browser.close()
 

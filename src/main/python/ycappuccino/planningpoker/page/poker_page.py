@@ -1,4 +1,6 @@
-"""PokerPage: the planning poker's page (French). Its room is the address's hash (`#<room id>`: never sent to the server
+"""PokerPage: the planning poker's page, in the languages and with the texts of the storage (the `language` and
+`translation` items, read over ICrud as the Y.Blues site reads them: strings.load): the browser's language, or the one
+picked in the header's ui_web LanguageSwitch, kept by the browser. Its room is the address's hash (`#<room id>`: never sent to the server
 nor kept in its logs); its identity a secret this browser draws once and keeps (localStorage), bound by the server to the
 nickname it joins with. It follows the room's topic (pubsub) and draws each state it receives; a (re)subscription asks
 the state again, so nothing is missed across a reconnection. Draws through the page's DomBinding only."""
@@ -8,12 +10,22 @@ import logging
 import time
 from typing import Any, Optional
 
+from ycappuccino.api.endpoints_storage import ICrud
 from ycappuccino.api.pubsub import ISubscriber, ISubscriptionListener, ISubscriptions
+from ycappuccino.ui.datasource import PagedSource
+from ycappuccino.ui.errors import error_key, transport_failure
+from ycappuccino.ui.i18n import Locale, built_in_locale
+from ycappuccino.ui.ycappuccino_transport import CrudDataSource
+from ycappuccino.ui_web.builder import Builder
+from ycappuccino.ui_web.drawer import Drawer
+from ycappuccino.ui_web.language import LanguageSwitch
 from ycappuccino.ui_web.page import IWebPage
 
 from ycappuccino.planningpoker.api import NOT_FOUND, IPlanningPoker, room_topic
 from ycappuccino.planningpoker.deck import AVATARS, DECK, NICKNAME_MAX, is_room_id
-from ycappuccino.planningpoker.page import browser, jira, view
+from ycappuccino.planningpoker.page import browser, jira, tutorial, view
+from ycappuccino.planningpoker import strings
+from ycappuccino.planningpoker.strings import BOOKMARKLET_TEXTS, LANGUAGE_PREFERENCE
 
 _logger = logging.getLogger(__name__)
 
@@ -24,12 +36,14 @@ IPOPO_URL = "https://github.com/tcalmant/ipopo"
 YCAPPUCCINO_URL = "https://github.com/Y-Blues/core"
 HEARTBEAT_SECONDS = 15  # well under the server's host_absent_seconds
 MOMENT_SECONDS = 4  # the longest animation (the reveal's countdown, flips, confetti) is over by then
+TEXTS_TRIES, TEXTS_WAIT = 15, 2.0  # the texts asked again while the server starts (then the built-in ones, the error said)
 
 
 class PokerPage(ISubscriber, ISubscriptionListener):
 
-    def __init__(self, page: IWebPage, poker: IPlanningPoker, subscriptions: ISubscriptions) -> None:
+    def __init__(self, page: IWebPage, poker: IPlanningPoker, subscriptions: ISubscriptions, crud: ICrud) -> None:
         self._page = page
+        self._source = PagedSource(CrudDataSource(crud))
         self._poker = poker
         self._subscriptions = subscriptions
         self._dom: Any = None
@@ -50,10 +64,26 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._drawn: Optional[dict] = None  # the state drawn last (its stamp aside)
         self._pending: Optional[tuple[str, list]] = None  # (Jira site, tickets) received, waiting for the host's OK
         self._since = 0.0  # when the current moments started (a redraw resumes them where they are)
+        self._texts: Locale = built_in_locale()   # the storage's languages and texts, every language
+        self._locale: Locale = self._texts   # the same, in the language shown
+        self._language: Optional[LanguageSwitch] = None
+        self._b: Optional[Builder] = None  # the static texts, relabelled when the language changes
+        self._error_text = ""  # the error shown, as a key or a coded message (shown again in a new language)
+        self._tutorial: Optional[Drawer] = None  # the Jira import's how-to
+
+    def t(self, key: str, **values: Any) -> str:
+        """a text in the page's language"""
+        return self._locale.t(key, **values)
 
     async def start(self) -> None:
         self._dom = self._page.navigator().dom
-        self._dom.set_document("Planning poker", "fr")
+        self._b = Builder(self._dom, self.t)
+        problem = await self._load_texts()
+        self._language = LanguageSwitch(self._dom, self._texts.languages, preference=LANGUAGE_PREFERENCE,
+                                        on_change=self._language_changed)
+        self._locale = self._texts.with_language(self._language.effective())
+        self._language.set_auto_label(self.t("ui.language_auto"))
+        self._dom.set_document(self.t("poker.brand"), self._locale.language)
         self._secret = self._dom.load_preference(SECRET_KEY) or ""
         if len(self._secret) < 32:
             self._secret = browser.new_secret()
@@ -61,12 +91,45 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         saved = self._dom.load_preference(AVATAR_KEY) or ""
         self._avatar = saved if saved in AVATARS else ""
         self._build(self._page.navigator().mount)
+        if problem:
+            self._error(problem)
         self._dom.on_escape(self.close_profile)
         self._dom.on_navigate(lambda _url: self.open_room(self._hash()))
         self._dom.on_window_message(self.window_message)
         self._dom.post_to_opener({"type": jira.READY})   # opened by the Jira bookmarklet: it may now send its tickets
         self._loading = asyncio.ensure_future(self.open_room(self._hash()))
         self._beating = asyncio.ensure_future(self._heartbeat())
+
+    async def _load_texts(self) -> str:
+        """the storage's languages and texts ("" once read); while the server starts they are asked again, then the
+        built-in texts stay and the error is named (the returned key, also logged)"""
+        for attempt in range(TEXTS_TRIES):
+            try:
+                texts = await strings.load(self._source)
+            except Exception as error:
+                if not transport_failure(error) or attempt == TEXTS_TRIES - 1:
+                    _logger.error("the poker's texts (language, translation) are not readable: %s", error)
+                    self._texts = built_in_locale(self._dom.languages())
+                    return error_key(error) or "ui.server_error"
+                await asyncio.sleep(TEXTS_WAIT)
+                continue
+            if "poker.brand" not in texts.strings:   # refused or not seeded: never a page of bare keys without a word
+                _logger.error("the poker's texts are missing from the translation item (seed planningpoker-texts)")
+                self._texts = built_in_locale(self._dom.languages())
+                return "ui.server_error"
+            self._texts = texts
+            return ""
+        return "ui.server_error"
+
+    async def _language_changed(self, language: str) -> None:
+        """the page's texts in the new language, at once (nothing rebuilt: the inputs keep what is typed)"""
+        self._locale = self._texts.with_language(language)
+        self._dom.set_document(self.t("poker.brand"), self._locale.language)
+        self._language.set_auto_label(self.t("ui.language_auto"))
+        self._b.relabel()
+        self._tutorial.set_title(self.t("poker.tutorial.title"), self.t("poker.close"))
+        self._error(self._error_text)
+        self._draw()
 
     async def stop(self) -> None:
         if self._loading is not None:
@@ -232,9 +295,20 @@ class PokerPage(ISubscriber, ISubscriptionListener):
     async def toggle_lock(self) -> None:
         await self._call(self._poker.lock(self._room, self._secret, not (self._state or {}).get("locked")))
 
+    async def open_tutorial(self) -> None:
+        await self._tutorial.open(return_focus=self._ui["tutorial_open"])
+
+    async def copy_bookmarklet(self) -> None:
+        """the bookmark's address copied, for a browser that cannot drag it (pasted as a new bookmark's URL)"""
+        copied = await self._dom.write_clipboard_text(self._bookmarklet())
+        self._dom.set_text(self._ui["bookmarklet_copy"], self.t("poker.tutorial.copied" if copied else "poker.tutorial.copy_failed"))
+
+    def _bookmarklet(self) -> str:
+        return jira.bookmarklet(self._link(), {name: self.t(key) for name, key in BOOKMARKLET_TEXTS.items()})
+
     async def copy_link(self) -> None:
         copied = await self._dom.write_clipboard_text(self._link())
-        self._dom.set_text(self._ui["copy"], "Lien copié ✓" if copied else "Copiez l'adresse de la page")
+        self._dom.set_text(self._ui["copy"], self.t("poker.link_copied" if copied else "poker.copy_by_hand"))
 
     # ------------------------------------------------------------------ state
 
@@ -265,7 +339,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._state, self._me = state, me
         if was_joined and me is not None and not any(person["id"] == me for person in state.get("participants") or []):
             self._me = None
-            self._error("Vous avez été retiré de la salle.")
+            self._error("poker.removed")
         self._draw()
 
     async def _follow(self, room: Optional[str]) -> None:
@@ -291,24 +365,32 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         return nickname
 
     def _error(self, text: str) -> None:
-        self._dom.set_text(self._ui["error"], text)
+        """text: a key, a coded message (the server's refusals) or a plain text, shown in the page's language"""
+        self._error_text = text
+        self._dom.set_text(self._ui["error"], self.t(text) if text else "")
         self._show(self._ui["error"], bool(text))
 
     # ------------------------------------------------------------------ drawing
 
-    def _el(self, parent: Any, tag: str, cls: str = "", text: str = "", **attributes: str) -> Any:
+    def _el(self, parent: Any, tag: str, cls: str = "", text: str = "", key: str = "", keys: Optional[dict] = None,
+            **attributes: str) -> Any:
+        """text: shown as written; key: a static text, keys: {attribute: key}, relabelled when the language changes"""
         element = self._dom.create_element(tag)
         if cls:
             self._dom.set_attribute(element, "class", cls)
         if text:
             self._dom.set_text(element, text)
+        if key:
+            self._b.text(element, key)
         for name, value in attributes.items():
             self._dom.set_attribute(element, name.rstrip("_").replace("_", "-"), value)
+        for name, attribute_key in (keys or {}).items():
+            self._b.text(element, attribute_key, name.rstrip("_").replace("_", "-"))
         if parent is not None:
             self._dom.append_child(parent, element)
         return element
 
-    def _button(self, parent: Any, cls: str, text: str, action, **attributes: str) -> Any:
+    def _button(self, parent: Any, cls: str, text: str, action, **attributes: Any) -> Any:
         button = self._el(parent, "button", cls, text, type="button", **attributes)
         self._dom.on_click(button, action)
         return button
@@ -323,46 +405,49 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui = self._ui
         app = self._el(mount, "div", "pp-app")
         header = self._el(app, "header", "pp-header")
-        self._el(header, "span", "pp-brand", "Planning poker")
-        ui["tools"] = tools = self._el(header, "div", "pp-tools")
+        self._el(header, "span", "pp-brand", key="poker.brand")
+        end = self._el(header, "div", "pp-header-end")
+        ui["tools"] = tools = self._el(end, "div", "pp-tools")
         ui["me"] = self._el(tools, "span", "pp-me")
-        ui["edit"] = self._button(tools, "pp-button pp-ghost pp-edit", "✏️ Modifier", self.toggle_profile,
-                                  aria_expanded="false", aria_controls="pp-profile", title="Changer de pseudo ou d'avatar")
-        ui["lock"] = self._button(tools, "pp-button pp-ghost", "Verrouiller", self.toggle_lock)
-        ui["copy"] = self._button(tools, "pp-button pp-ghost", "Copier le lien", self.copy_link)
+        ui["edit"] = self._button(tools, "pp-button pp-ghost pp-edit", "", self.toggle_profile, key="poker.edit",
+                                  keys={"title": "poker.edit.title"}, aria_expanded="false", aria_controls="pp-profile")
+        ui["lock"] = self._button(tools, "pp-button pp-ghost", "", self.toggle_lock)
+        ui["copy"] = self._button(tools, "pp-button pp-ghost", "", self.copy_link, key="poker.copy_link")
+        ui["language"] = self._language.render(end)
+        self._b.text(ui["language"], "poker.language", "aria-label")
         ui["error"] = self._el(app, "p", "pp-error", role="alert", hidden="")
 
         ui["welcome"] = welcome = self._el(app, "section", "pp-welcome")
         ui["welcome_title"] = self._el(welcome, "h1", "pp-title")
         ui["welcome_text"] = self._el(welcome, "p", "pp-lead")
         form = self._el(welcome, "form", "pp-form")
-        self._el(form, "label", "pp-label", "Votre pseudo", for_="pp-nickname")
+        self._el(form, "label", "pp-label", key="poker.nickname", for_="pp-nickname")
         ui["nickname"] = self._el(form, "input", "pp-input", id="pp-nickname", maxlength=str(NICKNAME_MAX),
-                                  autocomplete="nickname", placeholder="Ex. : Camille")
+                                  autocomplete="nickname", keys={"placeholder": "poker.nickname.example"})
         self._dom.set_value(ui["nickname"], self._dom.load_preference(NICKNAME_KEY) or "")
-        self._el(form, "span", "pp-label", "Votre avatar (facultatif)", id="pp-avatar-label")
+        self._el(form, "span", "pp-label", key="poker.avatar_optional", id="pp-avatar-label")
         ui["welcome_picker"] = self._el(form, "div", "pp-picker", role="group", aria_labelledby="pp-avatar-label")
         ui["enter"] = self._el(form, "button", "pp-button pp-primary", type="submit")
         self._dom.on_submit(form, ui["enter"], lambda: self.join() if self._room else self.create())
 
         ui["room"] = room = self._el(app, "section", "pp-room")
         ui["profile"] = profile = self._el(room, "form", "pp-profile", id="pp-profile", hidden="")
-        self._el(profile, "label", "pp-label", "Votre pseudo", for_="pp-profile-name")
+        self._el(profile, "label", "pp-label", key="poker.nickname", for_="pp-profile-name")
         ui["profile_name"] = self._el(profile, "input", "pp-input", id="pp-profile-name", maxlength=str(NICKNAME_MAX),
                                       autocomplete="nickname")
-        self._el(profile, "span", "pp-label", "Votre avatar", id="pp-profile-avatar")
+        self._el(profile, "span", "pp-label", key="poker.avatar", id="pp-profile-avatar")
         ui["picker"] = self._el(profile, "div", "pp-picker", role="group", aria_labelledby="pp-profile-avatar")
         actions = self._el(profile, "div", "pp-profile-actions")
-        ui["save"] = self._el(actions, "button", "pp-button pp-primary", "Enregistrer", type="submit")
-        ui["cancel"] = self._button(actions, "pp-button pp-ghost", "Annuler", self.close_profile)
+        ui["save"] = self._el(actions, "button", "pp-button pp-primary", key="poker.save", type="submit")
+        ui["cancel"] = self._button(actions, "pp-button pp-ghost", "", self.close_profile, key="poker.cancel")
         self._dom.on_submit(profile, ui["save"], self.save_profile)
         task = self._el(room, "div", "pp-task")
         ui["task_title"] = self._el(task, "h2", "pp-task-title")
         ui["task_form"] = task_form = self._el(task, "form", "pp-task-form")
-        self._el(task_form, "label", "pp-label", "N° de tâche", for_="pp-task-number")
+        self._el(task_form, "label", "pp-label", key="poker.task_number", for_="pp-task-number")
         ui["task_input"] = self._el(task_form, "input", "pp-input pp-input-small", id="pp-task-number",
                                     maxlength="33", placeholder="KP-111", autocapitalize="characters")
-        self._el(task_form, "label", "pp-label", "Epic / parent (facultatif)", for_="pp-task-parent")
+        self._el(task_form, "label", "pp-label", key="poker.task_parent", for_="pp-task-parent")
         ui["parent_input"] = self._el(task_form, "input", "pp-input pp-input-small", id="pp-task-parent",
                                       maxlength="33", placeholder="KP-100", autocapitalize="characters")
         ui["task_button"] = self._el(task_form, "button", "pp-button pp-primary", type="submit")
@@ -371,17 +456,12 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui["import"] = box = self._el(room, "div", "pp-import")
         ui["import_confirm"] = confirm = self._el(box, "div", "pp-import-confirm", role="status", hidden="")
         ui["import_text"] = self._el(confirm, "p", "pp-import-text")
-        self._button(confirm, "pp-button pp-primary", "Importer", self.import_pending)
-        self._button(confirm, "pp-button pp-ghost", "Ignorer", self.drop_pending)
-        details = self._el(box, "details", "pp-import-help")
-        self._el(details, "summary", "", "Importer depuis Jira")
-        steps = self._el(details, "ol", "pp-import-steps")
-        drag = self._el(steps, "li", "", "Glissez ce lien dans votre barre de favoris : ")
-        ui["bookmarklet"] = self._el(drag, "a", "pp-bookmarklet", "Planning poker ← Jira", href="#", draggable="true",
-                                     title="Glissez-moi dans la barre de favoris")
-        self._el(steps, "li", "", "Ouvrez dans Jira un epic, un ticket ou une recherche (*.atlassian.net), puis cliquez sur ce favori.")
-        self._el(steps, "li", "", "La salle s'ouvre : confirmez l'import, puis choisissez le ticket à jouer dans l'arbre. "
-                                  "Jira n'est qu'en lecture, rien n'y est écrit.")
+        self._button(confirm, "pp-button pp-primary", "", self.import_pending, key="poker.import")
+        self._button(confirm, "pp-button pp-ghost", "", self.drop_pending, key="poker.import.drop")
+        help_row = self._el(box, "div", "pp-import-help")
+        ui["tutorial_open"] = self._button(help_row, "pp-button pp-ghost pp-tutorial-open", "", self.open_tutorial,
+                                           key="poker.import.help", aria_haspopup="dialog")
+        self._el(help_row, "span", "pp-import-hint", key="poker.import.hint")
         ui["queue"] = self._el(room, "div", "pp-queue", hidden="")
 
         board = self._el(room, "div", "pp-board")
@@ -392,12 +472,17 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         ui["table_actions"] = self._el(table, "div", "pp-table-actions")
         ui["bottom"] = self._el(board, "div", "pp-seats")
 
-        ui["deck"] = self._el(room, "div", "pp-deck", role="group", aria_label="Vos cartes")
+        ui["deck"] = self._el(room, "div", "pp-deck", role="group", keys={"aria-label": "poker.cards"})
         ui["results"] = self._el(room, "div", "pp-results")
         ui["recap"] = self._el(room, "div", "pp-recap")
-        footer = self._el(app, "footer", "pp-footer", "Propulsé par ")
+        self._tutorial = Drawer(self._dom, self.t("poker.tutorial.title"), close_label=self.t("poker.close"))
+        self._tutorial.render(app)
+        self._dom.set_attribute(self._tutorial.element, "class", "yc-drawer pp-tutorial")
+        ui["bookmarklet"], ui["bookmarklet_copy"] = tutorial.render(self._b, self._tutorial.body, self.copy_bookmarklet)
+        footer = self._el(app, "footer", "pp-footer")
+        self._el(footer, "span", "", key="poker.powered_by")
         self._el(footer, "a", "", "iPOPO", href=IPOPO_URL, target="_blank", rel="noopener")
-        self._el(footer, "span", "", " et ")
+        self._el(footer, "span", "", key="poker.and")
         self._el(footer, "a", "", "YCappuccino", href=YCAPPUCCINO_URL, target="_blank", rel="noopener")
         self._draw()
 
@@ -428,17 +513,18 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             self._dom.remove_attribute(ui["room"], "data-consensus")
         host = view.is_host(state, me)
         mine = next((seat for seat in view.seats(state, me) if seat["me"]), None)
-        self._dom.set_text(ui["me"], f"{mine['avatar']} {mine['nickname']}{' · animateur' if host else ''}" if mine else "")
+        me_text = f"{mine['avatar']} {mine['nickname']}" if mine else ""
+        self._dom.set_text(ui["me"], self.t("poker.me_host", me=me_text) if mine and host else me_text)
         self._show(ui["lock"], host)
-        self._dom.set_text(ui["lock"], "Déverrouiller" if state.get("locked") else "Verrouiller")
+        self._dom.set_text(ui["lock"], self.t("poker.unlock" if state.get("locked") else "poker.lock"))
         self._dom.set_attribute(ui["lock"], "aria-pressed", "true" if state.get("locked") else "false")
         task = state.get("task")
-        self._dom.set_text(ui["task_title"], (f"Tâche {task['number']}" + (f" · {task['title']}" if task.get("title") else ""))
-                           if task else "Pas encore de tâche")
+        self._dom.set_text(ui["task_title"], (self.t("poker.task", number=task["number"]) + (f" · {task['title']}" if task.get("title") else ""))
+                           if task else self.t("poker.no_task"))
         self._show(ui["task_form"], host and (not task or task.get("revealed")))
         self._show(ui["import"], host)
         self._draw_import(host)
-        self._dom.set_text(ui["task_button"], "Tâche suivante" if task else "Commencer")
+        self._dom.set_text(ui["task_button"], self.t("poker.next_task" if task else "poker.start"))
         top, bottom = view.split(view.seats(state, me))
         self._draw_seats(ui["top"], top, host, 0)
         self._draw_seats(ui["bottom"], bottom, host, 1)
@@ -450,11 +536,12 @@ class PokerPage(ISubscriber, ISubscriptionListener):
     def _draw_import(self, host: bool) -> None:
         """the import's confirmation (tickets received), the bookmarklet's link, the queue to pick the next ticket from"""
         ui, state = self._ui, self._state or {}
-        self._dom.set_attribute(ui["bookmarklet"], "href", jira.bookmarklet(self._link()))
+        self._dom.set_attribute(ui["bookmarklet"], "href", self._bookmarklet())
         self._show(ui["import_confirm"], host and self._pending is not None)
         if self._pending is not None:
             site, tickets = self._pending
-            self._dom.set_text(ui["import_text"], f"{len(tickets)} ticket{'s' if len(tickets) > 1 else ''} reçu{'s' if len(tickets) > 1 else ''} de {site}")
+            self._dom.set_text(ui["import_text"], self.t("poker.import.received_many" if len(tickets) > 1 else "poker.import.received_one",
+                                                         count=len(tickets), site=site))
         task = state.get("task")
         box = ui["queue"]
         self._dom.clear(box)
@@ -463,9 +550,9 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         if not queue:
             return
         voting = bool(task) and not task.get("revealed")   # picking one now would drop the votes in progress
-        self._el(box, "h3", "pp-recap-title", "À jouer")
+        self._el(box, "h3", "pp-recap-title", self.t("poker.queue"))
         if voting:
-            self._el(box, "p", "pp-import-text", "Révélez les votes de la tâche en cours pour choisir la suivante.")
+            self._el(box, "p", "pp-import-text", self.t("poker.queue.locked"))
         self._draw_queue(box, queue, voting)
 
     def _draw_queue(self, parent: Any, nodes: list, locked: bool) -> None:
@@ -474,10 +561,10 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             item = self._el(tree, "li", "")
             label = f"{node['number']} {node.get('title') or ''}".strip()
             button = self._button(item, "pp-queue-item", "", lambda number=node["number"]: self.play(number),
-                                  aria_label=f"Jouer {label}", title=node.get("title") or node["number"])
+                                  aria_label=self.t("poker.queue.play", label=label), title=node.get("title") or node["number"])
             if locked:
                 self._dom.set_attribute(button, "disabled", "")
-            self._el(button, "span", "pp-kind is-" + (node.get("kind") or "task"), view.KIND_LABELS.get(node.get("kind"), "Tâche"))
+            self._el(button, "span", "pp-kind is-" + (node.get("kind") or "task"), self.t(view.KIND_LABELS.get(node.get("kind"), "poker.kind.task")))
             self._el(button, "span", "pp-key", node["number"])
             self._el(button, "span", "pp-title-text", node.get("title") or "")
             if node.get("children"):
@@ -488,15 +575,13 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._draw_picker(ui["welcome_picker"], self._avatar, self.pick_avatar)
         count = len((self._state or {}).get("participants") or [])
         if self._room:
-            self._dom.set_text(ui["welcome_title"], "Rejoindre la salle")
-            self._dom.set_text(ui["welcome_text"], f"{count} participant{'s' if count > 1 else ''} déjà présent"
-                                                   f"{'s' if count > 1 else ''}. Choisissez un pseudo pour voter.")
-            self._dom.set_text(ui["enter"], "Rejoindre")
+            self._dom.set_text(ui["welcome_title"], self.t("poker.join.title"))
+            self._dom.set_text(ui["welcome_text"], self.t("poker.join.lead_many" if count > 1 else "poker.join.lead_one", count=count))
+            self._dom.set_text(ui["enter"], self.t("poker.join"))
         else:
-            self._dom.set_text(ui["welcome_title"], "Planning poker")
-            self._dom.set_text(ui["welcome_text"], "Estimez vos tâches en équipe : créez une salle, partagez son lien, "
-                                                   "votez en même temps, révélez.")
-            self._dom.set_text(ui["enter"], "Créer une salle")
+            self._dom.set_text(ui["welcome_title"], self.t("poker.brand"))
+            self._dom.set_text(ui["welcome_text"], self.t("poker.welcome.lead"))
+            self._dom.set_text(ui["enter"], self.t("poker.create"))
 
     def _draw_picker(self, box: Any, current: str, pick) -> None:
         """the avatars as toggle buttons, `current` pressed"""
@@ -504,7 +589,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         for avatar in AVATARS:
             self._button(box, "pp-avatar-choice" + (" is-selected" if avatar == current else ""), avatar,
                          lambda chosen=avatar: pick(chosen), aria_pressed="true" if avatar == current else "false",
-                         aria_label=f"Avatar {avatar}")
+                         aria_label=self.t("poker.avatar.one", avatar=avatar))
 
     def _draw_seats(self, row: Any, seats: list, host: bool, offset: int) -> None:
         self._dom.clear(row)
@@ -515,26 +600,26 @@ class PokerPage(ISubscriber, ISubscriptionListener):
                 + (" is-fresh" if seat["id"] in moments.get("voted", ()) else "")
             element = self._el(row, "div", classes, data_participant=seat["id"], style=f"--i: {order}")
             card = self._el(element, "div", f"pp-card is-{seat['face']}" + (" is-flip" if moments.get("flip") else ""),
-                            aria_label={"empty": "pas encore voté", "down": "a voté"}.get(seat["face"], seat["card"]))
+                            aria_label=self.t("poker.card." + seat["face"]) if seat["face"] in ("empty", "down") else seat["card"])
             if seat["face"] == "up":
                 self._dom.set_text(card, seat["card"])
                 self._dom.set_attribute(card, "data-card", seat["card"])
             if seat["me"]:
-                self._button(element, "pp-avatar", seat["avatar"], self.toggle_profile, aria_label="Modifier mon profil",
-                             title="Modifier mon profil")
+                self._button(element, "pp-avatar", seat["avatar"], self.toggle_profile, aria_label=self.t("poker.edit_profile"),
+                             title=self.t("poker.edit_profile"))
             else:
                 self._el(element, "span", "pp-avatar", seat["avatar"], aria_hidden="true")
             name = self._el(element, "div", "pp-name")
             self._el(name, "span", "", seat["nickname"])
             if seat["host"]:
-                self._el(name, "span", "pp-badge", "animateur")
+                self._el(name, "span", "pp-badge", self.t("poker.host"))
             if host and not seat["me"]:
                 self._button(element, "pp-remove", "×", lambda who=seat["id"]: self.remove(who),
-                             aria_label=f"Retirer {seat['nickname']}", title=f"Retirer {seat['nickname']}")
+                             aria_label=self.t("poker.remove", nickname=seat["nickname"]), title=self.t("poker.remove", nickname=seat["nickname"]))
 
     def _draw_table(self, state: dict, host: bool) -> None:
         ui = self._ui
-        self._dom.set_text(ui["status"], view.status(state, self._me))
+        self._dom.set_text(ui["status"], view.status(state, self._me, self.t))
         self._dom.clear(ui["table_actions"])
         self._dom.clear(ui["fx"])
         if self._moments.get("flip"):  # 3, 2, 1, then the cards flip (CSS)
@@ -549,9 +634,9 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         if not task or not host:
             return
         if task.get("revealed"):
-            self._button(ui["table_actions"], "pp-button pp-ghost", "Revoter", self.revote)
+            self._button(ui["table_actions"], "pp-button pp-ghost", self.t("poker.revote"), self.revote)
         else:
-            self._button(ui["table_actions"], "pp-button pp-primary pp-reveal", "Révéler", self.reveal)
+            self._button(ui["table_actions"], "pp-button pp-primary pp-reveal", self.t("poker.reveal"), self.reveal)
 
     def _draw_results(self, state: dict, host: bool) -> None:
         box = self._ui["results"]
@@ -559,28 +644,29 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         fresh = self._moments.get("flip")
         consensus = bool((state.get("results") or {}).get("consensus"))
         self._dom.set_attribute(box, "class", "pp-results" + (" is-consensus" if consensus else "") + (" is-fresh" if fresh else ""))
-        lines = view.results(state)
+        lines = view.results(state, self._locale.language)
         self._show(box, bool(lines))
         if not lines:
             return
         if consensus:
-            self._el(box, "p", "pp-consensus", "Consensus !")
+            self._el(box, "p", "pp-consensus", self.t("poker.consensus"))
         stats = self._el(box, "dl", "pp-stats")
         for label, value in lines:
             item = self._el(stats, "div", "pp-stat")
-            self._el(item, "dt", "", label)
+            self._el(item, "dt", "", self.t(label))
             number = self._el(item, "dd", "", value)
-            whole, _, fraction = value.partition(",")
-            if fresh and label == "Moyenne" and whole.isdigit():  # counts up from 0 (CSS, the text stays the value)
+            separator = "," if "," in value else "."
+            whole, _, fraction = value.partition(separator)
+            if fresh and label == view.AVERAGE and whole.isdigit():  # counts up from 0 (CSS, the text stays the value)
                 self._dom.set_attribute(number, "class", "pp-count")
                 self._dom.set_attribute(number, "style", f"--pp-n: {whole}")
-                self._dom.set_attribute(number, "data-fraction", f",{fraction}" if fraction else "")
+                self._dom.set_attribute(number, "data-fraction", f"{separator}{fraction}" if fraction else "")
         bars = self._el(box, "div", "pp-distribution")
         for card, count in view.distribution(state):
             self._el(bars, "span", "pp-chip", f"{card} × {count}")
         final = (state.get("task") or {}).get("final") or ""
         choose = self._el(box, "div", "pp-final")
-        self._el(choose, "span", "pp-label", "Estimation retenue")
+        self._el(choose, "span", "pp-label", self.t("poker.final"))
         if host:
             for card in DECK:
                 if card in ("?", "☕"):
@@ -608,28 +694,28 @@ class PokerPage(ISubscriber, ISubscriptionListener):
     def _draw_recap(self, state: dict) -> None:
         box = self._ui["recap"]
         self._dom.clear(box)
-        rows, total = view.recap(state)
+        rows, total = view.recap(state, self._locale.language)
         self._show(box, bool(rows))
         if not rows:
             return
-        self._el(box, "h3", "pp-recap-title", "Récapitulatif")
+        self._el(box, "h3", "pp-recap-title", self.t("poker.recap"))
         table = self._el(box, "table", "pp-recap-table")
         head = self._el(self._el(table, "thead"), "tr")
-        self._el(head, "th", "", "Tâche")
-        self._el(head, "th", "", "Estimation")
+        self._el(head, "th", "", self.t("poker.recap.task"))
+        self._el(head, "th", "", self.t("poker.recap.estimate"))
         nested = any(row["sub"] for row in rows)
         if nested:
-            self._el(head, "th", "", "Σ dessous", title="Total des estimations des éléments en dessous")
+            self._el(head, "th", "", self.t("poker.recap.below"), title=self.t("poker.recap.below.title"))
         divided = any(row["divided"] for row in rows)
         if divided:
-            self._el(head, "th", "pp-divided", f"÷ {view.STORY_DIVISOR}", aria_label=f"divisé par {view.STORY_DIVISOR}",
-                     title=f"Story : total dessous divisé par {view.STORY_DIVISOR}, arrondi au supérieur")
+            self._el(head, "th", "pp-divided", f"÷ {view.STORY_DIVISOR}", aria_label=self.t("poker.recap.divided", n=view.STORY_DIVISOR),
+                     title=self.t("poker.recap.divided.title", n=view.STORY_DIVISOR))
         body = self._el(table, "tbody")
         for row in rows:
             line = self._el(body, "tr", f"pp-depth-{min(row['depth'], 4)}" + (" is-parent" if row["sub"] else ""))
             cell = self._el(self._el(line, "td", "pp-recap-task"), "div", "pp-recap-line")
             if row["kind"]:
-                self._el(cell, "span", "pp-kind is-" + row["kind"], view.KIND_LABELS.get(row["kind"], ""))
+                self._el(cell, "span", "pp-kind is-" + row["kind"], self.t(view.KIND_LABELS[row["kind"]]) if row["kind"] in view.KIND_LABELS else "")
             self._el(cell, "span", "pp-key", row["number"])
             if row["title"]:
                 self._el(cell, "span", "pp-title-text", row["title"])
@@ -639,7 +725,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             if divided:
                 self._el(line, "td", "pp-divided", row["divided"])
         foot = self._el(self._el(table, "tfoot"), "tr")
-        self._el(foot, "td", "", "Total")
+        self._el(foot, "td", "", self.t("poker.recap.total"))
         self._el(foot, "td", "", total)
         if nested:
             self._el(foot, "td", "")
@@ -650,4 +736,4 @@ class PokerPage(ISubscriber, ISubscriptionListener):
 def _message(error: Exception) -> str:
     """the server's message, without the transport's prefix"""
     text = str(error.args[0]) if error.args else str(error)
-    return text or "Le serveur ne répond pas, réessayez."
+    return text or "poker.error.no_answer"

@@ -7,6 +7,7 @@ from unittest import mock
 from importlib import resources
 
 import yaml
+from ycappuccino.permissions.token_rights import TokenRights
 
 from ycappuccino.api.decorators import get_rpc_methods
 from ycappuccino.api.endpoints_storage import Forbidden, InvalidRequest, NotFound
@@ -57,8 +58,16 @@ class TestRoomIds(Room):
         descriptor = yaml.safe_load(resources.files("ycappuccino.planningpoker").joinpath("ycappuccino_app.yml")
                                     .read_text(encoding="utf-8"))
         bundles = [bundle for part in descriptor["parts"].values() for bundle in part.get("bundles", [])]
-        for rest in ("ycappuccino.endpoints_storage", "ycappuccino.http_server"):  # no CRUD API, no REST door
-            self.assertFalse(any(bundle.startswith(rest) for bundle in bundles), rest)
+        self.assertFalse(any(bundle.startswith("ycappuccino.http_server") for bundle in bundles))   # no REST door
+        self.assertEqual([bundle for bundle in bundles if bundle.startswith("ycappuccino.endpoints_storage")],
+                         ["ycappuccino.endpoints_storage.crud"])   # ICrud for the texts only:
+        public = descriptor["components"]["TokenRights"]["public_rights"]
+        self.assertEqual(public, ["read:language", "read:translation"])   # what an anonymous caller may do with it
+        rights = TokenRights(items=None, public_rights=public)
+        for action, item, allowed in (("read", "translation", True), ("read", "language", True), ("write", "translation", False),
+                                      ("read", ROOM_ITEM, False), ("read", PARTICIPANT_ITEM, False), ("read", TASK_ITEM, False),
+                                      ("read", VOTE_ITEM, False), ("delete", ROOM_ITEM, False)):
+            self.assertEqual(await rights.is_authorized(None, action, item), allowed, (action, item))
 
     async def test_an_unknown_room_answers_the_same_whatever_the_cause(self):
         room = await self.room()
@@ -83,7 +92,7 @@ class TestIdentity(Room):
 
     async def test_a_nickname_is_bound_to_its_browser(self):
         room = await self.room()
-        with self.assertRaisesRegex(Forbidden, "déjà pris"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.nickname_taken"):
             await self.poker.join(room, self.chloe, "  bob ")
         again = await self.poker.join(room, self.bob, "Bobby")  # the same browser: itself, renamed
         self.assertEqual([p["nickname"] for p in again["participants"]], ["Alice", "Bobby"])
@@ -104,15 +113,15 @@ class TestIdentity(Room):
         room = await self.room()
         await self.poker.join(room, self.chloe, "Chloé")
         await self.poker.join(room, secret(), "Dan")
-        with self.assertRaisesRegex(InvalidRequest, "pleine"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.full"):
             await self.poker.join(room, secret(), "Eve")
 
     async def test_a_locked_room_refuses_newcomers_not_members(self):
         room = await self.room()
-        with self.assertRaisesRegex(Forbidden, "animateur"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.host_only"):
             await self.poker.lock(room, self.bob, True)
         await self.poker.lock(room, self.alice, True)
-        with self.assertRaisesRegex(Forbidden, "verrouillée"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.locked"):
             await self.poker.join(room, self.chloe, "Chloé")
         self.assertEqual(len((await self.poker.join(room, self.bob, "Bob"))["participants"]), 2)
         await self.poker.lock(room, self.alice, False)
@@ -130,13 +139,13 @@ class TestRename(Room):
         self.assertEqual(answer["host"], answer["me"])  # still the host
         self.assertTrue(answer["participants"][0]["voted"])  # its vote is kept
         self.assertEqual(self.publisher.published[-1][1]["participants"][0]["nickname"], "Alicia")
-        with self.assertRaisesRegex(Forbidden, "déjà pris"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.nickname_taken"):
             await self.poker.join(room, self.chloe, "alicia")  # the new name is the one taken
         await self.poker.join(room, self.chloe, "Alice")  # the old one is free again
 
     async def test_taken_by_another_is_forbidden_unchanged_or_case_is_fine(self):
         room = await self.room()
-        with self.assertRaisesRegex(Forbidden, "déjà pris"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.nickname_taken"):
             await self.poker.rename(room, self.bob, " ALICE ")
         self.assertEqual((await self.poker.rename(room, self.bob, "Bob"))["participants"][1]["nickname"], "Bob")  # no-op
         self.assertEqual((await self.poker.rename(room, self.bob, "BOB"))["participants"][1]["nickname"], "BOB")
@@ -169,9 +178,9 @@ class TestAvatars(Room):
         self.assertEqual([p["avatar"] for p in answer["participants"]], [default_avatar("Alice"), AVATARS[4]])
         self.assertEqual(self.publisher.published[-1][1]["participants"][1]["avatar"], AVATARS[4])
         for bad in ("", "x", "🇫🇷"):
-            with self.assertRaisesRegex(InvalidRequest, "Avatar inconnu"):
+            with self.assertRaisesRegex(InvalidRequest, "poker.error.bad_avatar"):
                 await self.poker.set_avatar(room, self.bob, bad)
-        with self.assertRaisesRegex(InvalidRequest, "Avatar inconnu"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.bad_avatar"):
             await self.poker.join(room, self.chloe, "Chloé", "x")
         with self.assertRaises(Forbidden):
             await self.poker.set_avatar(room, self.chloe, AVATARS[0])  # never joined: nobody else's to change
@@ -181,7 +190,7 @@ class TestVoting(Room):
 
     async def test_votes_stay_hidden_until_revealed(self):
         room = await self.room()
-        with self.assertRaisesRegex(InvalidRequest, "Aucun vote"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.no_vote"):
             await self.poker.vote(room, self.bob, "3")
         await self.poker.next_task(room, self.alice, "#101")
         await self.poker.vote(room, self.alice, "3")
@@ -191,7 +200,7 @@ class TestVoting(Room):
         for topic, published in self.publisher.published:
             self.assertEqual(topic, room_topic(room))
             self.assertTrue(all(p["card"] is None for p in published["participants"]))
-        with self.assertRaisesRegex(Forbidden, "animateur"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.host_only"):
             await self.poker.reveal(room, self.bob)
         state = await self.poker.reveal(room, self.alice)
         self.assertEqual([p["card"] for p in state["participants"]], ["3", "8"])
@@ -218,7 +227,7 @@ class TestVoting(Room):
     async def test_cards_withdraw_revote_final_and_recap(self):
         room = await self.room()
         await self.poker.next_task(room, self.alice, "7")
-        with self.assertRaisesRegex(InvalidRequest, "Carte"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.bad_card"):
             await self.poker.vote(room, self.bob, "4")
         await self.poker.vote(room, self.bob, "5")
         state = await self.poker.vote(room, self.bob, "")
@@ -241,13 +250,13 @@ class TestVoting(Room):
     async def test_tasks_are_numbers_or_keys_and_capped(self):
         room = await self.room()
         for wrong in ("KP-", "", "1" * 33, "KP 111"):
-            with self.assertRaisesRegex(InvalidRequest, "Numéro"):
+            with self.assertRaisesRegex(InvalidRequest, "poker.error.bad_task"):
                 await self.poker.next_task(room, self.alice, wrong)
         with self.assertRaises(Forbidden):
             await self.poker.next_task(room, self.bob, "1")
         for number in ("1", "2", "3"):
             await self.poker.next_task(room, self.alice, number)
-        with self.assertRaisesRegex(InvalidRequest, "Limite"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.task_limit"):
             await self.poker.next_task(room, self.alice, "4")
         self.assertEqual(len(self.manager.of(TASK_ITEM)), 1)  # those never revealed are dropped
 
@@ -308,7 +317,7 @@ class TestImport(Room):
         (only,) = state["queue"]  # the invalid ones skipped; a bad kind a task, a self parent none, a title cut
         self.assertEqual((only["number"], only["kind"], len(only["title"])), ("KP-1", "task", 200))
         await poker.import_tasks(room, self.alice, [ticket(f"T-{n}") for n in range(3)])
-        with self.assertRaisesRegex(InvalidRequest, "Limite"):   # 4 + 3 > max_tasks 5
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.import_limit"):   # 4 + 3 > max_tasks 5
             await poker.import_tasks(room, self.alice, [ticket(f"U-{n}") for n in range(3)])
         await poker.import_tasks(room, self.alice, [ticket("T-0", "again"), ticket("T-1"), ticket("U-1")])  # 5: allowed
 
@@ -375,7 +384,7 @@ class TestImport(Room):
         self.assertEqual((by["EPIC-1"]["final"], by["EPIC-1"]["total"]), ("", 8))
         self.assertEqual([c["number"] for c in by["EPIC-1"]["children"]], ["7", "8"])
         for wrong in ("KP 1", "7"):
-            with self.assertRaisesRegex(InvalidRequest, "Parent"):
+            with self.assertRaisesRegex(InvalidRequest, "poker.error.bad_parent"):
                 await self.poker.next_task(room, self.alice, "7", wrong)
 
     async def test_a_loop_of_parents_does_not_hang_the_state(self):
@@ -463,7 +472,7 @@ class TestHostHandover(Room):
         self.assertEqual(await self.host_of(room, self.bob), "Bob")
         state = await self.poker.join(room, self.alice, "Alice")
         self.assertNotEqual(state["host"], state["me"])
-        with self.assertRaisesRegex(Forbidden, "animateur"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.host_only"):
             await self.poker.lock(room, self.alice, True)
 
     async def test_the_returning_host_keeps_the_room_if_nobody_checked(self):
@@ -477,9 +486,9 @@ class TestHostHandover(Room):
         await self.poker.next_task(room, self.alice, "1")
         self.now += 200
         await self.poker.vote(room, self.bob, "5")  # Bob's call hands the room over
-        with self.assertRaisesRegex(Forbidden, "animateur"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.host_only"):
             await self.poker.reveal(room, self.alice)  # ... the old host (back) is a participant
-        with self.assertRaisesRegex(Forbidden, "animateur"):
+        with self.assertRaisesRegex(Forbidden, "poker.error.host_only"):
             await self.poker.reveal(room, self.chloe)
         state = await self.poker.reveal(room, self.bob)
         self.assertTrue(state["task"]["revealed"])
@@ -510,7 +519,7 @@ class TestRateLimits(unittest.IsolatedAsyncioTestCase):
         VISITOR_ADDRESS.set("203.0.113.1")
         await self.poker.create_room(secret(), "A")
         await self.poker.create_room(secret(), "A")
-        with self.assertRaisesRegex(InvalidRequest, "Trop de tentatives"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.too_many"):
             await self.poker.create_room(secret(), "A")
         VISITOR_ADDRESS.set("203.0.113.2")
         await self.poker.create_room(secret(), "A")
@@ -522,7 +531,7 @@ class TestRateLimits(unittest.IsolatedAsyncioTestCase):
         for _ in range(3):
             with self.assertRaises(NotFound):
                 await self.poker.join(secrets.token_urlsafe(24), secret(), "Guess")
-        with self.assertRaisesRegex(InvalidRequest, "Trop de tentatives"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.too_many"):
             await self.poker.join(room, secret(), "Guess")  # even a real one, until the window slides
         VISITOR_ADDRESS.set("198.51.100.9")
         await self.poker.join(room, secret(), "Other")
@@ -535,7 +544,7 @@ class TestRateLimits(unittest.IsolatedAsyncioTestCase):
         room = (await poker.create_room(host, "A"))["room"]
         for _ in range(3):
             await poker.lock(room, host, True)
-        with self.assertRaisesRegex(InvalidRequest, "Trop de tentatives"):
+        with self.assertRaisesRegex(InvalidRequest, "poker.error.too_many"):
             await poker.lock(room, host, False)
 
 

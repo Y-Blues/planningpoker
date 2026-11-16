@@ -4,7 +4,7 @@ from ycappuccino.core.decorator_app import Dimension
 
 
 @Dimension(name="planningpoker")
-@Item(collection="poker_tasks", expire_after={"field": "_mat", "seconds": 30 * 86400}, name="poker_task", plural="poker_tasks")
+@Item(collection="poker_tasks", shared=True, expire_after={"field": "_mat", "seconds": 30 * 86400}, name="poker_task", plural="poker_tasks")
 class PokerTask(Model):
     """a task voted on in a room, by its number; imported ones wait queued, and sit in an Epic > Story > Sub-task tree by parent"""
 

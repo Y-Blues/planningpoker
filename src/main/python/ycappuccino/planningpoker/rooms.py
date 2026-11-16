@@ -19,6 +19,7 @@ import secrets
 import time
 
 from ycappuccino.api.endpoints_storage import Forbidden, InvalidRequest, NotFound
+from ycappuccino.api.messages import coded
 from ycappuccino.api.storage import IManager
 
 from ycappuccino.planningpoker.api import (NOT_FOUND, PARTICIPANT_ITEM, ROOM_ITEM, TASK_ITEM, VOTE_ITEM, IPlanningPoker,
@@ -30,8 +31,8 @@ from ycappuccino.planningpoker.state import fields, records, room_state
 _logger = logging.getLogger(__name__)
 
 ROOM_ID_BYTES = 24  # 192 bits, 32 URL-safe characters
-_BAD_AVATAR = "Avatar inconnu : choisissez-en un dans la liste."
-HOST_ONLY = "Réservé à l'animateur de la salle."
+_BAD_AVATAR = coded("poker.error.bad_avatar")
+HOST_ONLY = coded("poker.error.host_only")
 _PURGE_BATCH = 100
 
 
@@ -98,9 +99,9 @@ class PlanningPoker(IPlanningPoker):
             await self._succeed(room, record)
             return await self._touched(room, mine["_id"])
         if record.get("locked"):
-            raise Forbidden("La salle est verrouillée : demandez à l'animateur de l'ouvrir.")
+            raise Forbidden(coded("poker.error.locked"))
         if len(people) >= self._max_participants:
-            raise InvalidRequest(f"La salle est pleine ({self._max_participants} participants).")
+            raise InvalidRequest(coded("poker.error.full", max=self._max_participants))
         person = new_id()
         await self._manager.up_sert(PARTICIPANT_ITEM, person, {
             "room": room, "nickname": name, "avatar": chosen, "key": name.casefold(),
@@ -138,10 +139,10 @@ class PlanningPoker(IPlanningPoker):
     async def vote(self, room: str, secret: str, card: str) -> dict:
         record, person = await self._caller(room, secret)
         if card not in DECK and card != "":
-            raise InvalidRequest("Carte inconnue.")
+            raise InvalidRequest(coded("poker.error.bad_card"))
         task = fields(await self._manager.get_one(TASK_ITEM, record.get("task"))) if record.get("task") else {}
         if not task:
-            raise InvalidRequest("Aucun vote en cours.")
+            raise InvalidRequest(coded("poker.error.no_vote"))
         vote_id = f"{task['_id']}.{person['_id']}"
         before = None
         if task.get("revealed"):   # a card changed after the reveal: the results follow, the host's own pick stays
@@ -175,9 +176,9 @@ class PlanningPoker(IPlanningPoker):
     async def set_final(self, room: str, secret: str, card: str) -> dict:
         record, person, task = await self._host_task(room, secret)
         if card not in DECK:
-            raise InvalidRequest("Carte inconnue.")
+            raise InvalidRequest(coded("poker.error.bad_card"))
         if not task.get("revealed"):
-            raise InvalidRequest("Révélez les votes d'abord.")
+            raise InvalidRequest(coded("poker.error.reveal_first"))
         await self._manager.up_sert(TASK_ITEM, task["_id"], {"final": card})
         return await self._touched(room, person["_id"])
 
@@ -185,13 +186,13 @@ class PlanningPoker(IPlanningPoker):
         record, person = await self._host(room, secret)
         cleaned = task_number(number)
         if cleaned is None:
-            raise InvalidRequest("Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).")
+            raise InvalidRequest(coded("poker.error.bad_task"))
         above = task_number(parent) if parent else None
         if parent and (above is None or above == cleaned):
-            raise InvalidRequest("Parent invalide (un numéro de tâche, autre que la tâche elle-même).")
+            raise InvalidRequest(coded("poker.error.bad_parent"))
         order = int(record.get("tasks") or 0)
         if order >= self._max_tasks:
-            raise InvalidRequest(f"Limite de {self._max_tasks} tâches atteinte : créez une nouvelle salle.")
+            raise InvalidRequest(coded("poker.error.task_limit", max=self._max_tasks))
         current = fields(await self._manager.get_one(TASK_ITEM, record.get("task"))) if record.get("task") else {}
         if current and not current.get("revealed"):  # left unrevealed: an imported one back in the queue, else forgotten
             await self._manager.delete_many(VOTE_ITEM, {"task": current["_id"]})
@@ -210,17 +211,17 @@ class PlanningPoker(IPlanningPoker):
         record, person = await self._host(room, secret)
         self._limits.check("import")
         if not isinstance(items, list) or len(items) > self._max_import:
-            raise InvalidRequest(f"Import refusé : une liste d'au plus {self._max_import} tickets est attendue.")
+            raise InvalidRequest(coded("poker.error.import_size", max=self._max_import))
         tickets = {found["number"]: found for found in map(ticket, items) if found}
         if not tickets:
-            raise InvalidRequest("Aucun ticket valide à importer.")
+            raise InvalidRequest(coded("poker.error.import_empty"))
         self._limits.count("import")
         stored = await records(self._manager, TASK_ITEM, {"room": room})
         known = {}
         for task in sorted(stored, key=lambda task: task.get("order") or 0):
             known[task.get("number")] = task   # a replayed number: its latest play
         if len(set(known) | set(tickets)) > self._max_tasks:
-            raise InvalidRequest(f"Limite de {self._max_tasks} tâches par salle : créez une nouvelle salle.")
+            raise InvalidRequest(coded("poker.error.import_limit", max=self._max_tasks))
         for number, found in tickets.items():
             existing = known.get(number)
             changes = {"title": found["title"], "kind": found["kind"], **({"parent": found["parent"]} if found["parent"] else {})}
@@ -232,7 +233,7 @@ class PlanningPoker(IPlanningPoker):
     async def remove(self, room: str, secret: str, participant: str) -> dict:
         record, person = await self._host(room, secret)
         if participant == person["_id"]:
-            raise InvalidRequest("L'animateur ne peut pas se retirer.")
+            raise InvalidRequest(coded("poker.error.host_stays"))
         other = fields(await self._manager.get_one(PARTICIPANT_ITEM, str(participant)))
         if other.get("room") == room:
             await self._manager.delete_many(VOTE_ITEM, {"participant": other["_id"]})
@@ -279,7 +280,7 @@ class PlanningPoker(IPlanningPoker):
         self._limits.count("action")
         person = await self._participant(room, secret) if is_secret(secret) else None
         if person is None:
-            raise Forbidden("Rejoignez la salle d'abord.")
+            raise Forbidden(coded("poker.error.join_first"))
         record = await self._seen(room, person, record)
         return record, person
 
@@ -313,7 +314,7 @@ class PlanningPoker(IPlanningPoker):
         record, person = await self._host(room, secret)
         task = fields(await self._manager.get_one(TASK_ITEM, record.get("task"))) if record.get("task") else {}
         if not task:
-            raise InvalidRequest("Aucune tâche en cours.")
+            raise InvalidRequest(coded("poker.error.no_task"))
         return record, person, task
 
     async def _touched(self, room: str, person: str, **changes) -> dict:
@@ -332,13 +333,13 @@ def _free(people: list, name: str, mine: dict | None) -> None:
     """the nickname must not belong to another participant of the room"""
     holder = next((person for person in people if person.get("key") == name.casefold()), None)
     if holder is not None and (mine is None or holder["_id"] != mine["_id"]):
-        raise Forbidden("Ce pseudo est déjà pris dans cette salle.")
+        raise Forbidden(coded("poker.error.nickname_taken"))
 
 
 def _nickname(text: str) -> str:
     name = nickname(text)
     if name is None:
-        raise InvalidRequest("Pseudo invalide : 1 à 24 lettres, chiffres, espaces ou . ' - _")
+        raise InvalidRequest(coded("poker.error.bad_nickname"))
     return name
 
 
@@ -354,4 +355,4 @@ def _avatar(text: str) -> str:
 
 def _secret(secret: str) -> None:
     if not is_secret(secret):
-        raise InvalidRequest("Identité du navigateur invalide : rechargez la page.")
+        raise InvalidRequest(coded("poker.error.bad_secret"))

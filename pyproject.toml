@@ -1,6 +1,6 @@
 [project]
 name = "ycappuccino-planningpoker"
-version = "0.1.0.2"
+version = "0.1.0.3"
 description = "Planning poker on YCappuccino: anonymous nicknames, a shared room, live votes over WebSocket, a Pyodide page"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
@@ -9,14 +9,16 @@ dependencies = [
     "ycappuccino-api>=0.7.64",
     "ycappuccino-core",
     "ycappuccino-storage",
+    "ycappuccino-endpoints-storage",  # ICrud (the texts read by the page)
     "ycappuccino-endpoints-service",
     "ycappuccino-hosts",
     "ycappuccino-remote",
     "ycappuccino-pubsub",
-    "ycappuccino-permissions",  # its Throttle only (rate limits); none of its components is loaded
+    "ycappuccino-permissions",  # its Throttle (rate limits) and TokenRights (the anonymous caller reads the texts only)
     "ycappuccino-client",
     "ycappuccino-ui",
-    "ycappuccino-ui-web",
+    "ycappuccino-ui-web>=0.6.90.3",  # LanguageSwitch, Builder, Drawer, StepList
+    "ycappuccino-ui-content",        # the language and translation items, the platform's languages and texts (seed)
 ]
 
 [project.entry-points."ycappuccino.apps"]
@@ -47,4 +49,5 @@ ycappuccino-permissions = { path = "../permissions_app", editable = true }
 ycappuccino-client = { path = "../client", editable = true }
 ycappuccino-ui = { path = "../ui", editable = true }
 ycappuccino-ui-web = { path = "../ui_web", editable = true }
+ycappuccino-ui-content = { path = "../ui_content", editable = true }
 ycappuccino-build = { path = "../build", editable = true }

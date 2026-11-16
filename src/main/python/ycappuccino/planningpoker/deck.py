@@ -3,6 +3,8 @@
 import hashlib
 import re
 
+from ycappuccino.ui.series import format_number
+
 DECK = ("0", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "?", "☕")   # Fibonacci, no ½ (owner 2026-11-05)
 _VALUES = {card: float(card) for card in DECK if card.isdigit()}
 
@@ -87,8 +89,9 @@ def is_room_id(text: str) -> bool:
     return isinstance(text, str) and bool(_ROOM_ID.fullmatch(text))
 
 
-def format_average(number: float | None) -> str:
-    """French decimal: 4,5"""
+def format_average(number: float | None, lang: str = "fr") -> str:
+    """one decimal at most, in the language (ycappuccino.ui.series.format_number): 4,5 in French, 4.5 in English"""
     if number is None:
         return "–"
-    return (f"{number:.1f}".rstrip("0").rstrip(".")).replace(".", ",")
+    text = format_number(number, 1, lang)
+    return text[:-2] if text[-2:] in (".0", ",0") else text

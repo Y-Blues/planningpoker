@@ -1,6 +1,8 @@
 # The planning poker as an app module (ycappuccino.core.composition): rooms reached by an unguessable link, anonymous
 # nicknames bound to each browser's secret, votes live over WebSocket (WS-RPC calls, pubsub topic per room), its
-# Pyodide page on /. No accounts, no CRUD API: the only public surface is IPlanningPoker. Storage and port are the host's.
+# Pyodide page on /. No accounts. Its public surface: IPlanningPoker, and ICrud for reading its languages and texts only
+# (the `language` and `translation` items of ui_content, seeded like the Y.Blues site's: TokenRights grants an anonymous
+# caller read:language and read:translation, nothing else). Storage and port are the host's.
 app: planningpoker
 label: Planning poker
 parts:
@@ -9,6 +11,11 @@ parts:
               ycappuccino.remote.dispatch, ycappuccino.remote.capabilities]                  # no REST API
   models:
     bundles: [ycappuccino.planningpoker.models]
+  texts:                       # its languages and texts: ui_content's items and platform seed (French first, English),
+    # its own texts seeded beside them (seed/translations.json, followed: a text edited since is kept), read by the page
+    # over ICrud as the site reads its own (ycappuccino.ui.i18n); the anonymous caller's rights: those two reads only
+    include: [ycappuccino.ui_content/profiles/platform_texts.yml]
+    bundles: [ycappuccino.storage.seed, ycappuccino.endpoints_storage.crud, ycappuccino.permissions.token_rights]
   services:
     bundles: [ycappuccino.planningpoker.rooms, ycappuccino.planningpoker.rate_limits,
               ycappuccino.planningpoker.room_events, ycappuccino.planningpoker.topic_access,
@@ -17,10 +24,18 @@ parts:
     bundles: [ycappuccino.pubsub, ycappuccino.remote.rpc_websocket_handler]
   front:
     fronts: [poker]
-layers: [ycappuccino_remote_ws_rpc]
+layers: [ycappuccino_remote_ws_rpc, ycappuccino_permissions_token_rights]
 http:
   websocket: true
 components:
+  TokenRights:
+    public_rights: ["read:language", "read:translation"]
+  SeedLoader:
+    sources:
+      - id: planningpoker-texts
+        directory: "package:ycappuccino.planningpoker/seed"
+        files: {translations.json: translation}
+        follow: true
   PlanningPoker:
     max_participants: ${poker.max_participants:30}
     max_tasks: ${poker.max_tasks:300}

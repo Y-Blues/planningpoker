@@ -1,4 +1,6 @@
+import json
 import unittest
+from importlib import resources
 
 from ycappuccino.ui_web.navigation import Navigator
 from ycappuccino.ui_web.testing import FakeDom, FakeElement
@@ -42,6 +44,40 @@ class FakePoker:
         return call
 
 
+def seeded(package: str, path: str) -> list:
+    """a seed file's records (what SeedLoader writes into the storage)"""
+    return json.loads(resources.files(package).joinpath(path).read_text(encoding="utf-8"))
+
+
+class FakeCrud:
+    """the storage as ICrud reads it to a visitor: the seeded languages and texts (ui_content's platform, the poker's)"""
+
+    def __init__(self, items=None):
+        self.items = items if items is not None else {
+            "language": seeded("ycappuccino.ui_content", "seed/platform/languages.json"),
+            "translation": seeded("ycappuccino.ui_content", "seed/platform/translations.json")
+            + seeded("ycappuccino.planningpoker", "seed/translations.json")}
+        self.error = None
+        self.asked = []
+
+    async def get_many(self, item, params, subject=None):
+        self.asked.append((item, params))
+        if self.error is not None:
+            raise self.error
+        rows = self.items.get(item, [])
+        offset = int(params.get("offset") or 0)
+        return {"items": rows[offset: offset + int(params.get("limit") or 50)]}
+
+
+def texts():
+    """the Locale the page reads from FakeCrud (strings.load)"""
+    import asyncio
+    from ycappuccino.ui.datasource import PagedSource
+    from ycappuccino.ui.ycappuccino_transport import CrudDataSource
+    from ycappuccino.planningpoker import strings
+    return asyncio.run(strings.load(PagedSource(CrudDataSource(FakeCrud()))))
+
+
 class FakeSubscriptions:
     def __init__(self):
         self.topics = []
@@ -63,13 +99,15 @@ class FakePage:
 
 class Page(unittest.IsolatedAsyncioTestCase):
 
-    async def open(self, location="/", answer=None, preferences=None):
+    async def open(self, location="/", answer=None, preferences=None, languages=("fr-FR",), crud=None):
         self.dom = FakeDom(location)
+        self.dom.browser_languages = list(languages)
         self.dom.preferences.update(preferences or {})
         self.poker = FakePoker()
         self.poker.answer = answer
         self.subscriptions = FakeSubscriptions()
-        self.page = PokerPage(FakePage(self.dom), self.poker, self.subscriptions)
+        self.crud = crud or FakeCrud()
+        self.page = PokerPage(FakePage(self.dom), self.poker, self.subscriptions, self.crud)
         await self.page.start()
         await self.page._loading
         return self.page
@@ -113,10 +151,10 @@ class TestIdentity(Page):
 
     async def test_an_unknown_room_says_so(self):
         page = await self.open("/#" + "x" * 3)
-        self.assertEqual(page._ui["error"].text, NOT_FOUND)
+        self.assertEqual(page._ui["error"].text, "Salle introuvable.")
         self.poker.error = NotFound(NOT_FOUND)
         await page.open_room("Z" * 32)
-        self.assertEqual(page._ui["error"].text, NOT_FOUND)
+        self.assertEqual(page._ui["error"].text, "Salle introuvable.")
         self.assertEqual(self.subscriptions.topics, [])
 
 
@@ -256,10 +294,11 @@ class TestAvatarAndFooter(Page):
 class TestView(unittest.TestCase):
 
     def test_status_and_recap(self):
-        self.assertEqual(view.status(state(task=False), "a"), "Choisissez la première tâche.")
-        self.assertEqual(view.status(state(me_votes=True), "b"), "2 votes sur 2")
+        t = texts().with_language("fr").t
+        self.assertEqual(view.status(state(task=False), "a", t), "Choisissez la première tâche.")
+        self.assertEqual(view.status(state(me_votes=True), "b", t), "2 votes sur 2")
         self.assertEqual(view.recap(state(revealed=True)), ([{"depth": 0, "number": "12", "title": "", "kind": "", "final": "8", "sub": "", "divided": ""}], "8"))
-        self.assertEqual(view.results(state(revealed=True))[0], ("Moyenne", "5,5"))
+        self.assertEqual(view.results(state(revealed=True))[0], (view.AVERAGE, "5,5"))
 
     def test_divided_up_rounds_up(self):
         self.assertEqual([view.divided_up(total) for total in (0, 1, 8, 13, 16, 17, 24.5)], [0, 1, 1, 2, 2, 3, 4])

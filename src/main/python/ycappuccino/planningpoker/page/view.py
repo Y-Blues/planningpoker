@@ -25,18 +25,18 @@ def split(items: list) -> tuple[list, list]:
     return items[0::2], items[1::2]
 
 
-def status(state: dict, me: str | None) -> str:
-    """the table's line"""
+def status(state: dict, me: str | None, t) -> str:
+    """the table's line, through t (a ycappuccino.ui Locale's t)"""
     task = state.get("task")
     people = state.get("participants") or []
     if not task:
-        return "L'animateur choisit la première tâche." if not is_host(state, me) else "Choisissez la première tâche."
+        return t("poker.status.host_picks") if not is_host(state, me) else t("poker.status.pick_first")
     if task.get("revealed"):
-        return "Cartes révélées"
+        return t("poker.status.revealed")
     voted = sum(1 for person in people if person.get("voted"))
     if voted == 0:
-        return "Choisissez une carte"
-    return f"{voted} vote{'s' if voted > 1 else ''} sur {len(people)}"
+        return t("poker.status.pick_card")
+    return t("poker.status.voted_many" if voted > 1 else "poker.status.voted_one", voted=voted, total=len(people))
 
 
 def is_host(state: dict, me: str | None) -> bool:
@@ -54,15 +54,18 @@ def can_vote(state: dict, me: str | None) -> bool:
     return me is not None and bool(task)   # also after the reveal: a card may still change
 
 
-def results(state: dict) -> list:
-    """(label, value) lines of a revealed vote"""
+AVERAGE = "poker.stat.average"
+
+
+def results(state: dict, lang: str = "fr") -> list:
+    """(label key, value) lines of a revealed vote, its numbers written in lang"""
     summary = state.get("results")
     if not summary:
         return []
     if summary.get("average") is None:
-        return [("Votes", str(summary.get("votes", 0))), ("Moyenne", "–")]
-    return [("Moyenne", format_average(summary["average"])), ("Carte la plus proche", summary["nearest"]),
-            ("Min", summary["min"]), ("Max", summary["max"]), ("Votes", str(summary["votes"]))]
+        return [("poker.stat.votes", str(summary.get("votes", 0))), (AVERAGE, "–")]
+    return [(AVERAGE, format_average(summary["average"], lang)), ("poker.stat.nearest", summary["nearest"]),
+            ("poker.stat.min", summary["min"]), ("poker.stat.max", summary["max"]), ("poker.stat.votes", str(summary["votes"]))]
 
 
 def distribution(state: dict) -> list:
@@ -71,7 +74,7 @@ def distribution(state: dict) -> list:
     return [(card, counts[card]) for card in DECK if card in counts]
 
 
-KIND_LABELS = {"epic": "Epic", "story": "Story", "subtask": "Sous-tâche", "task": "Tâche"}
+KIND_LABELS = {"epic": "poker.kind.epic", "story": "poker.kind.story", "subtask": "poker.kind.subtask", "task": "poker.kind.task"}   # keys
 
 
 def flatten(tree: list, depth: int = 0) -> list:
@@ -91,17 +94,17 @@ def divided_up(total: float) -> int:
     return math.ceil(total / STORY_DIVISOR)
 
 
-def recap(state: dict) -> tuple[list, str]:
+def recap(state: dict, lang: str = "fr") -> tuple[list, str]:
     """the recap tree as rows (depth, number, title, kind, final, sub: the descendants' total, "" for a leaf, divided:
-    a story's sub divided_up, "" for any other row) and the total of every numeric final"""
+    a story's sub divided_up, "" for any other row) and the total of every numeric final, numbers written in lang"""
     rows, total = [], 0.0
     for depth, node in flatten(state.get("recap") or []):
         total += value(node.get("final") or "") or 0
         rows.append({"depth": depth, "number": node.get("number") or "", "title": node.get("title") or "",
                      "kind": node.get("kind") or "", "final": node.get("final") or "–",
-                     "sub": format_average(node["total"]) if node.get("children") else "",
+                     "sub": format_average(node["total"], lang) if node.get("children") else "",
                      "divided": str(divided_up(node["total"])) if node.get("kind") == "story" and node.get("children") else ""})
-    return rows, format_average(total)
+    return rows, format_average(total, lang)
 
 
 def moments(before: dict | None, state: dict, me: str | None, mine: str) -> tuple[dict, dict]:

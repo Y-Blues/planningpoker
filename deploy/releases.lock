@@ -12,5 +12,6 @@ pubsub v0.7.2
 permissions_app v0.7.54.4
 client v0.6.16
 ui v0.5.78
-ui_web v0.6.90
+ui_content v0.7.6.1   # the language and translation items and the platform seed (as on the site)
+ui_web v0.6.90.3   # StepList (the Jira how-to), local tag until pushed: its wheel built from the tag into deploy/wheels
 build v0.6.20

@@ -1,0 +1,1074 @@
+[
+  {
+    "id": "poker.brand",
+    "key": "poker.brand",
+    "text": {
+      "fr": "Planning poker",
+      "en": "Planning poker"
+    }
+  },
+  {
+    "id": "poker.language",
+    "key": "poker.language",
+    "text": {
+      "fr": "Langue",
+      "en": "Language"
+    }
+  },
+  {
+    "id": "poker.edit",
+    "key": "poker.edit",
+    "text": {
+      "fr": "✏️ Modifier",
+      "en": "✏️ Edit"
+    }
+  },
+  {
+    "id": "poker.edit.title",
+    "key": "poker.edit.title",
+    "text": {
+      "fr": "Changer de pseudo ou d'avatar",
+      "en": "Change your nickname or avatar"
+    }
+  },
+  {
+    "id": "poker.lock",
+    "key": "poker.lock",
+    "text": {
+      "fr": "Verrouiller",
+      "en": "Lock"
+    }
+  },
+  {
+    "id": "poker.unlock",
+    "key": "poker.unlock",
+    "text": {
+      "fr": "Déverrouiller",
+      "en": "Unlock"
+    }
+  },
+  {
+    "id": "poker.copy_link",
+    "key": "poker.copy_link",
+    "text": {
+      "fr": "Copier le lien",
+      "en": "Copy link"
+    }
+  },
+  {
+    "id": "poker.link_copied",
+    "key": "poker.link_copied",
+    "text": {
+      "fr": "Lien copié ✓",
+      "en": "Link copied ✓"
+    }
+  },
+  {
+    "id": "poker.copy_by_hand",
+    "key": "poker.copy_by_hand",
+    "text": {
+      "fr": "Copiez l'adresse de la page",
+      "en": "Copy the page's address"
+    }
+  },
+  {
+    "id": "poker.me_host",
+    "key": "poker.me_host",
+    "text": {
+      "fr": "{me} · animateur",
+      "en": "{me} · host"
+    }
+  },
+  {
+    "id": "poker.powered_by",
+    "key": "poker.powered_by",
+    "text": {
+      "fr": "Propulsé par ",
+      "en": "Powered by "
+    }
+  },
+  {
+    "id": "poker.and",
+    "key": "poker.and",
+    "text": {
+      "fr": " et ",
+      "en": " and "
+    }
+  },
+  {
+    "id": "poker.welcome.lead",
+    "key": "poker.welcome.lead",
+    "text": {
+      "fr": "Estimez vos tâches en équipe : créez une salle, partagez son lien, votez en même temps, révélez.",
+      "en": "Estimate your tasks as a team: create a room, share its link, vote at the same time, reveal."
+    }
+  },
+  {
+    "id": "poker.create",
+    "key": "poker.create",
+    "text": {
+      "fr": "Créer une salle",
+      "en": "Create a room"
+    }
+  },
+  {
+    "id": "poker.join.title",
+    "key": "poker.join.title",
+    "text": {
+      "fr": "Rejoindre la salle",
+      "en": "Join the room"
+    }
+  },
+  {
+    "id": "poker.join.lead_one",
+    "key": "poker.join.lead_one",
+    "text": {
+      "fr": "{count} participant déjà présent. Choisissez un pseudo pour voter.",
+      "en": "{count} participant already here. Pick a nickname to vote."
+    }
+  },
+  {
+    "id": "poker.join.lead_many",
+    "key": "poker.join.lead_many",
+    "text": {
+      "fr": "{count} participants déjà présents. Choisissez un pseudo pour voter.",
+      "en": "{count} participants already here. Pick a nickname to vote."
+    }
+  },
+  {
+    "id": "poker.join",
+    "key": "poker.join",
+    "text": {
+      "fr": "Rejoindre",
+      "en": "Join"
+    }
+  },
+  {
+    "id": "poker.nickname",
+    "key": "poker.nickname",
+    "text": {
+      "fr": "Votre pseudo",
+      "en": "Your nickname"
+    }
+  },
+  {
+    "id": "poker.nickname.example",
+    "key": "poker.nickname.example",
+    "text": {
+      "fr": "Ex. : Camille",
+      "en": "e.g. Sam"
+    }
+  },
+  {
+    "id": "poker.avatar_optional",
+    "key": "poker.avatar_optional",
+    "text": {
+      "fr": "Votre avatar (facultatif)",
+      "en": "Your avatar (optional)"
+    }
+  },
+  {
+    "id": "poker.avatar",
+    "key": "poker.avatar",
+    "text": {
+      "fr": "Votre avatar",
+      "en": "Your avatar"
+    }
+  },
+  {
+    "id": "poker.avatar.one",
+    "key": "poker.avatar.one",
+    "text": {
+      "fr": "Avatar {avatar}",
+      "en": "Avatar {avatar}"
+    }
+  },
+  {
+    "id": "poker.save",
+    "key": "poker.save",
+    "text": {
+      "fr": "Enregistrer",
+      "en": "Save"
+    }
+  },
+  {
+    "id": "poker.cancel",
+    "key": "poker.cancel",
+    "text": {
+      "fr": "Annuler",
+      "en": "Cancel"
+    }
+  },
+  {
+    "id": "poker.edit_profile",
+    "key": "poker.edit_profile",
+    "text": {
+      "fr": "Modifier mon profil",
+      "en": "Edit my profile"
+    }
+  },
+  {
+    "id": "poker.task_number",
+    "key": "poker.task_number",
+    "text": {
+      "fr": "N° de tâche",
+      "en": "Task number"
+    }
+  },
+  {
+    "id": "poker.task_parent",
+    "key": "poker.task_parent",
+    "text": {
+      "fr": "Epic / parent (facultatif)",
+      "en": "Epic / parent (optional)"
+    }
+  },
+  {
+    "id": "poker.task",
+    "key": "poker.task",
+    "text": {
+      "fr": "Tâche {number}",
+      "en": "Task {number}"
+    }
+  },
+  {
+    "id": "poker.no_task",
+    "key": "poker.no_task",
+    "text": {
+      "fr": "Pas encore de tâche",
+      "en": "No task yet"
+    }
+  },
+  {
+    "id": "poker.next_task",
+    "key": "poker.next_task",
+    "text": {
+      "fr": "Tâche suivante",
+      "en": "Next task"
+    }
+  },
+  {
+    "id": "poker.start",
+    "key": "poker.start",
+    "text": {
+      "fr": "Commencer",
+      "en": "Start"
+    }
+  },
+  {
+    "id": "poker.import",
+    "key": "poker.import",
+    "text": {
+      "fr": "Importer",
+      "en": "Import"
+    }
+  },
+  {
+    "id": "poker.import.drop",
+    "key": "poker.import.drop",
+    "text": {
+      "fr": "Ignorer",
+      "en": "Dismiss"
+    }
+  },
+  {
+    "id": "poker.import.help",
+    "key": "poker.import.help",
+    "text": {
+      "fr": "📥 Importer depuis Jira",
+      "en": "📥 Import from Jira"
+    }
+  },
+  {
+    "id": "poker.import.hint",
+    "key": "poker.import.hint",
+    "text": {
+      "fr": "Un favori à installer une fois, puis un clic dans Jira : le mode d'emploi pas à pas.",
+      "en": "A bookmark to install once, then one click in Jira: the step-by-step guide."
+    }
+  },
+  {
+    "id": "poker.import.bookmarklet",
+    "key": "poker.import.bookmarklet",
+    "text": {
+      "fr": "Planning poker ← Jira",
+      "en": "Planning poker ← Jira"
+    }
+  },
+  {
+    "id": "poker.import.drag_me",
+    "key": "poker.import.drag_me",
+    "text": {
+      "fr": "Glissez-moi dans la barre de favoris",
+      "en": "Drag me to your bookmarks bar"
+    }
+  },
+  {
+    "id": "poker.close",
+    "key": "poker.close",
+    "text": {
+      "fr": "Fermer",
+      "en": "Close"
+    }
+  },
+  {
+    "id": "poker.tutorial.title",
+    "key": "poker.tutorial.title",
+    "text": {
+      "fr": "Importer depuis Jira, pas à pas",
+      "en": "Import from Jira, step by step"
+    }
+  },
+  {
+    "id": "poker.tutorial.intro",
+    "key": "poker.tutorial.intro",
+    "text": {
+      "fr": "Faites venir dans cette salle les tickets d'un epic, d'un ticket ou d'une recherche Jira. Il faut un ordinateur et un favori spécial, installé une seule fois.",
+      "en": "Bring the issues of a Jira epic, issue or search into this room. You need a computer and a special bookmark, installed only once."
+    }
+  },
+  {
+    "id": "poker.tutorial.steps",
+    "key": "poker.tutorial.steps",
+    "text": {
+      "fr": "Étapes",
+      "en": "Steps"
+    }
+  },
+  {
+    "id": "poker.tutorial.s1",
+    "key": "poker.tutorial.s1",
+    "text": {
+      "fr": "Affichez la barre de favoris",
+      "en": "Show the bookmarks bar"
+    }
+  },
+  {
+    "id": "poker.tutorial.s1.text",
+    "key": "poker.tutorial.s1.text",
+    "text": {
+      "fr": "Appuyez sur Ctrl + Maj + B (Windows, Linux) ou ⌘ + Maj + B (Mac). La barre apparaît sous la barre d'adresse.",
+      "en": "Press Ctrl + Shift + B (Windows, Linux) or ⌘ + Shift + B (Mac). The bar appears below the address bar."
+    }
+  },
+  {
+    "id": "poker.tutorial.s2",
+    "key": "poker.tutorial.s2",
+    "text": {
+      "fr": "Glissez ce bouton dans la barre de favoris",
+      "en": "Drag this button to the bookmarks bar"
+    }
+  },
+  {
+    "id": "poker.tutorial.s2.text",
+    "key": "poker.tutorial.s2.text",
+    "text": {
+      "fr": "Cliquez sur le bouton et gardez le clic enfoncé, montez jusqu'à la barre, puis relâchez. Vous ne le faites qu'une fois.",
+      "en": "Click the button and hold, move up to the bar, then let go. You only do this once."
+    }
+  },
+  {
+    "id": "poker.tutorial.s3",
+    "key": "poker.tutorial.s3",
+    "text": {
+      "fr": "Ouvrez Jira",
+      "en": "Open Jira"
+    }
+  },
+  {
+    "id": "poker.tutorial.s3.text",
+    "key": "poker.tutorial.s3.text",
+    "text": {
+      "fr": "Dans Jira (votre-site.atlassian.net), ouvrez l'epic, le ticket ou la recherche à estimer.",
+      "en": "In Jira (your-site.atlassian.net), open the epic, issue or search to estimate."
+    }
+  },
+  {
+    "id": "poker.tutorial.s4",
+    "key": "poker.tutorial.s4",
+    "text": {
+      "fr": "Cliquez sur le favori",
+      "en": "Click the bookmark"
+    }
+  },
+  {
+    "id": "poker.tutorial.s4.text",
+    "key": "poker.tutorial.s4.text",
+    "text": {
+      "fr": "Cliquez sur « Planning poker ← Jira » dans la barre de favoris. Cette salle s'ouvre et reçoit les tickets.",
+      "en": "Click « Planning poker ← Jira » in the bookmarks bar. This room opens and receives the issues."
+    }
+  },
+  {
+    "id": "poker.tutorial.s5",
+    "key": "poker.tutorial.s5",
+    "text": {
+      "fr": "Confirmez, puis jouez",
+      "en": "Confirm, then play"
+    }
+  },
+  {
+    "id": "poker.tutorial.s5.text",
+    "key": "poker.tutorial.s5.text",
+    "text": {
+      "fr": "Dans la salle, l'animateur clique sur Importer. Les tickets arrivent dans « À jouer » : cliquez sur celui à estimer. Le récapitulatif les range en Epic › Story › Sous-tâche, avec les totaux.",
+      "en": "In the room, the host clicks Import. The issues arrive in « Up next »: click the one to estimate. The summary sorts them as Epic › Story › Sub-task, with the totals."
+    }
+  },
+  {
+    "id": "poker.tutorial.readonly",
+    "key": "poker.tutorial.readonly",
+    "text": {
+      "fr": "🔒 Jira est seulement lu : rien n'est jamais écrit ni modifié dans Jira.",
+      "en": "🔒 Jira is only read: nothing is ever written or changed in Jira."
+    }
+  },
+  {
+    "id": "poker.tutorial.tips",
+    "key": "poker.tutorial.tips",
+    "text": {
+      "fr": "Ça ne marche pas ?",
+      "en": "Not working?"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_drag",
+    "key": "poker.tutorial.tip_drag",
+    "text": {
+      "fr": "Le bouton ne se glisse pas",
+      "en": "The button won't drag"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_drag.text",
+    "key": "poker.tutorial.tip_drag.text",
+    "text": {
+      "fr": "Firefox : clic droit sur le bouton › Marquer ce lien. Chrome, Edge : cliquez sur « Copier le favori », puis clic droit sur la barre de favoris › Ajouter une page, nommez-la « Planning poker ← Jira » et collez dans le champ URL.",
+      "en": "Firefox: right-click the button › Bookmark Link. Chrome, Edge: click « Copy the bookmark », then right-click the bookmarks bar › Add page, name it « Planning poker ← Jira » and paste into the URL field."
+    }
+  },
+  {
+    "id": "poker.tutorial.copy",
+    "key": "poker.tutorial.copy",
+    "text": {
+      "fr": "Copier le favori",
+      "en": "Copy the bookmark"
+    }
+  },
+  {
+    "id": "poker.tutorial.copied",
+    "key": "poker.tutorial.copied",
+    "text": {
+      "fr": "Favori copié ✓",
+      "en": "Bookmark copied ✓"
+    }
+  },
+  {
+    "id": "poker.tutorial.copy_failed",
+    "key": "poker.tutorial.copy_failed",
+    "text": {
+      "fr": "Copie refusée : utilisez le clic droit sur le bouton",
+      "en": "Copy refused: right-click the button instead"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_popup",
+    "key": "poker.tutorial.tip_popup",
+    "text": {
+      "fr": "« Le navigateur a bloqué l'ouverture de la salle »",
+      "en": "« The browser blocked the room from opening »"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_popup.text",
+    "key": "poker.tutorial.tip_popup.text",
+    "text": {
+      "fr": "Autorisez les fenêtres pop-up pour votre site Jira (l'icône à droite de la barre d'adresse), puis cliquez à nouveau sur le favori.",
+      "en": "Allow pop-ups for your Jira site (the icon at the right of the address bar), then click the bookmark again."
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_login",
+    "key": "poker.tutorial.tip_login",
+    "text": {
+      "fr": "« Jira a répondu 401 » (ou 403)",
+      "en": "« Jira answered 401 » (or 403)"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_login.text",
+    "key": "poker.tutorial.tip_login.text",
+    "text": {
+      "fr": "Vous n'êtes pas connecté à Jira dans ce navigateur : connectez-vous, rechargez la page Jira, puis cliquez à nouveau sur le favori.",
+      "en": "You are not signed in to Jira in this browser: sign in, reload the Jira page, then click the bookmark again."
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_none",
+    "key": "poker.tutorial.tip_none",
+    "text": {
+      "fr": "« Aucun ticket trouvé »",
+      "en": "« No issue found »"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_none.text",
+    "key": "poker.tutorial.tip_none.text",
+    "text": {
+      "fr": "La page ouverte ne montre aucun ticket : ouvrez un epic, un ticket ou une recherche qui en contient (pas un tableau de bord), ou tapez la clé quand le favori la demande (ex. KP-12).",
+      "en": "The open page shows no issue: open an epic, an issue or a search that has some (not a dashboard), or type the key when the bookmark asks for it (e.g. KP-12)."
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_nothing",
+    "key": "poker.tutorial.tip_nothing",
+    "text": {
+      "fr": "Rien ne se passe dans la salle",
+      "en": "Nothing happens in the room"
+    }
+  },
+  {
+    "id": "poker.tutorial.tip_nothing.text",
+    "key": "poker.tutorial.tip_nothing.text",
+    "text": {
+      "fr": "Gardez cette salle ouverte dans le même navigateur, avec le compte de l'animateur, puis cliquez à nouveau sur le favori depuis Jira.",
+      "en": "Keep this room open in the same browser, as the host, then click the bookmark again from Jira."
+    }
+  },
+  {
+    "id": "poker.import.received_one",
+    "key": "poker.import.received_one",
+    "text": {
+      "fr": "{count} ticket reçu de {site}",
+      "en": "{count} issue received from {site}"
+    }
+  },
+  {
+    "id": "poker.import.received_many",
+    "key": "poker.import.received_many",
+    "text": {
+      "fr": "{count} tickets reçus de {site}",
+      "en": "{count} issues received from {site}"
+    }
+  },
+  {
+    "id": "poker.queue",
+    "key": "poker.queue",
+    "text": {
+      "fr": "À jouer",
+      "en": "Up next"
+    }
+  },
+  {
+    "id": "poker.queue.locked",
+    "key": "poker.queue.locked",
+    "text": {
+      "fr": "Révélez les votes de la tâche en cours pour choisir la suivante.",
+      "en": "Reveal the current task's votes to pick the next one."
+    }
+  },
+  {
+    "id": "poker.queue.play",
+    "key": "poker.queue.play",
+    "text": {
+      "fr": "Jouer {label}",
+      "en": "Estimate {label}"
+    }
+  },
+  {
+    "id": "poker.cards",
+    "key": "poker.cards",
+    "text": {
+      "fr": "Vos cartes",
+      "en": "Your cards"
+    }
+  },
+  {
+    "id": "poker.card.empty",
+    "key": "poker.card.empty",
+    "text": {
+      "fr": "pas encore voté",
+      "en": "not voted yet"
+    }
+  },
+  {
+    "id": "poker.card.down",
+    "key": "poker.card.down",
+    "text": {
+      "fr": "a voté",
+      "en": "voted"
+    }
+  },
+  {
+    "id": "poker.host",
+    "key": "poker.host",
+    "text": {
+      "fr": "animateur",
+      "en": "host"
+    }
+  },
+  {
+    "id": "poker.remove",
+    "key": "poker.remove",
+    "text": {
+      "fr": "Retirer {nickname}",
+      "en": "Remove {nickname}"
+    }
+  },
+  {
+    "id": "poker.removed",
+    "key": "poker.removed",
+    "text": {
+      "fr": "Vous avez été retiré de la salle.",
+      "en": "You have been removed from the room."
+    }
+  },
+  {
+    "id": "poker.reveal",
+    "key": "poker.reveal",
+    "text": {
+      "fr": "Révéler",
+      "en": "Reveal"
+    }
+  },
+  {
+    "id": "poker.revote",
+    "key": "poker.revote",
+    "text": {
+      "fr": "Revoter",
+      "en": "Vote again"
+    }
+  },
+  {
+    "id": "poker.status.host_picks",
+    "key": "poker.status.host_picks",
+    "text": {
+      "fr": "L'animateur choisit la première tâche.",
+      "en": "The host is choosing the first task."
+    }
+  },
+  {
+    "id": "poker.status.pick_first",
+    "key": "poker.status.pick_first",
+    "text": {
+      "fr": "Choisissez la première tâche.",
+      "en": "Choose the first task."
+    }
+  },
+  {
+    "id": "poker.status.revealed",
+    "key": "poker.status.revealed",
+    "text": {
+      "fr": "Cartes révélées",
+      "en": "Cards revealed"
+    }
+  },
+  {
+    "id": "poker.status.pick_card",
+    "key": "poker.status.pick_card",
+    "text": {
+      "fr": "Choisissez une carte",
+      "en": "Pick a card"
+    }
+  },
+  {
+    "id": "poker.status.voted_one",
+    "key": "poker.status.voted_one",
+    "text": {
+      "fr": "{voted} vote sur {total}",
+      "en": "{voted} of {total} voted"
+    }
+  },
+  {
+    "id": "poker.status.voted_many",
+    "key": "poker.status.voted_many",
+    "text": {
+      "fr": "{voted} votes sur {total}",
+      "en": "{voted} of {total} voted"
+    }
+  },
+  {
+    "id": "poker.consensus",
+    "key": "poker.consensus",
+    "text": {
+      "fr": "Consensus !",
+      "en": "Consensus!"
+    }
+  },
+  {
+    "id": "poker.stat.votes",
+    "key": "poker.stat.votes",
+    "text": {
+      "fr": "Votes",
+      "en": "Votes"
+    }
+  },
+  {
+    "id": "poker.stat.average",
+    "key": "poker.stat.average",
+    "text": {
+      "fr": "Moyenne",
+      "en": "Average"
+    }
+  },
+  {
+    "id": "poker.stat.nearest",
+    "key": "poker.stat.nearest",
+    "text": {
+      "fr": "Carte la plus proche",
+      "en": "Closest card"
+    }
+  },
+  {
+    "id": "poker.stat.min",
+    "key": "poker.stat.min",
+    "text": {
+      "fr": "Min",
+      "en": "Min"
+    }
+  },
+  {
+    "id": "poker.stat.max",
+    "key": "poker.stat.max",
+    "text": {
+      "fr": "Max",
+      "en": "Max"
+    }
+  },
+  {
+    "id": "poker.final",
+    "key": "poker.final",
+    "text": {
+      "fr": "Estimation retenue",
+      "en": "Final estimate"
+    }
+  },
+  {
+    "id": "poker.recap",
+    "key": "poker.recap",
+    "text": {
+      "fr": "Récapitulatif",
+      "en": "Summary"
+    }
+  },
+  {
+    "id": "poker.recap.task",
+    "key": "poker.recap.task",
+    "text": {
+      "fr": "Tâche",
+      "en": "Task"
+    }
+  },
+  {
+    "id": "poker.recap.estimate",
+    "key": "poker.recap.estimate",
+    "text": {
+      "fr": "Estimation",
+      "en": "Estimate"
+    }
+  },
+  {
+    "id": "poker.recap.below",
+    "key": "poker.recap.below",
+    "text": {
+      "fr": "Σ dessous",
+      "en": "Σ below"
+    }
+  },
+  {
+    "id": "poker.recap.below.title",
+    "key": "poker.recap.below.title",
+    "text": {
+      "fr": "Total des estimations des éléments en dessous",
+      "en": "Total of the estimates below"
+    }
+  },
+  {
+    "id": "poker.recap.divided",
+    "key": "poker.recap.divided",
+    "text": {
+      "fr": "divisé par {n}",
+      "en": "divided by {n}"
+    }
+  },
+  {
+    "id": "poker.recap.divided.title",
+    "key": "poker.recap.divided.title",
+    "text": {
+      "fr": "Story : total dessous divisé par {n}, arrondi au supérieur",
+      "en": "Story: total below divided by {n}, rounded up"
+    }
+  },
+  {
+    "id": "poker.recap.total",
+    "key": "poker.recap.total",
+    "text": {
+      "fr": "Total",
+      "en": "Total"
+    }
+  },
+  {
+    "id": "poker.kind.epic",
+    "key": "poker.kind.epic",
+    "text": {
+      "fr": "Epic",
+      "en": "Epic"
+    }
+  },
+  {
+    "id": "poker.kind.story",
+    "key": "poker.kind.story",
+    "text": {
+      "fr": "Story",
+      "en": "Story"
+    }
+  },
+  {
+    "id": "poker.kind.subtask",
+    "key": "poker.kind.subtask",
+    "text": {
+      "fr": "Sous-tâche",
+      "en": "Sub-task"
+    }
+  },
+  {
+    "id": "poker.kind.task",
+    "key": "poker.kind.task",
+    "text": {
+      "fr": "Tâche",
+      "en": "Task"
+    }
+  },
+  {
+    "id": "poker.error.no_answer",
+    "key": "poker.error.no_answer",
+    "text": {
+      "fr": "Le serveur ne répond pas, réessayez.",
+      "en": "The server is not answering, try again."
+    }
+  },
+  {
+    "id": "poker.error.not_found",
+    "key": "poker.error.not_found",
+    "text": {
+      "fr": "Salle introuvable.",
+      "en": "Room not found."
+    }
+  },
+  {
+    "id": "poker.error.too_many",
+    "key": "poker.error.too_many",
+    "text": {
+      "fr": "Trop de tentatives, réessayez plus tard.",
+      "en": "Too many attempts, try again later."
+    }
+  },
+  {
+    "id": "poker.error.host_only",
+    "key": "poker.error.host_only",
+    "text": {
+      "fr": "Réservé à l'animateur de la salle.",
+      "en": "Only the room's host can do that."
+    }
+  },
+  {
+    "id": "poker.error.locked",
+    "key": "poker.error.locked",
+    "text": {
+      "fr": "La salle est verrouillée : demandez à l'animateur de l'ouvrir.",
+      "en": "The room is locked: ask the host to unlock it."
+    }
+  },
+  {
+    "id": "poker.error.full",
+    "key": "poker.error.full",
+    "text": {
+      "fr": "La salle est pleine ({max} participants).",
+      "en": "The room is full ({max} participants)."
+    }
+  },
+  {
+    "id": "poker.error.bad_avatar",
+    "key": "poker.error.bad_avatar",
+    "text": {
+      "fr": "Avatar inconnu : choisissez-en un dans la liste.",
+      "en": "Unknown avatar: pick one from the list."
+    }
+  },
+  {
+    "id": "poker.error.bad_card",
+    "key": "poker.error.bad_card",
+    "text": {
+      "fr": "Carte inconnue.",
+      "en": "Unknown card."
+    }
+  },
+  {
+    "id": "poker.error.no_vote",
+    "key": "poker.error.no_vote",
+    "text": {
+      "fr": "Aucun vote en cours.",
+      "en": "No vote in progress."
+    }
+  },
+  {
+    "id": "poker.error.reveal_first",
+    "key": "poker.error.reveal_first",
+    "text": {
+      "fr": "Révélez les votes d'abord.",
+      "en": "Reveal the votes first."
+    }
+  },
+  {
+    "id": "poker.error.bad_task",
+    "key": "poker.error.bad_task",
+    "text": {
+      "fr": "Numéro de tâche invalide (ex. 1234 ou KP-111 : lettres, chiffres et tirets).",
+      "en": "Invalid task number (e.g. 1234 or KP-111: letters, digits and hyphens)."
+    }
+  },
+  {
+    "id": "poker.error.bad_parent",
+    "key": "poker.error.bad_parent",
+    "text": {
+      "fr": "Parent invalide (un numéro de tâche, autre que la tâche elle-même).",
+      "en": "Invalid parent (a task number other than the task itself)."
+    }
+  },
+  {
+    "id": "poker.error.task_limit",
+    "key": "poker.error.task_limit",
+    "text": {
+      "fr": "Limite de {max} tâches atteinte : créez une nouvelle salle.",
+      "en": "Limit of {max} tasks reached: create a new room."
+    }
+  },
+  {
+    "id": "poker.error.import_size",
+    "key": "poker.error.import_size",
+    "text": {
+      "fr": "Import refusé : une liste d'au plus {max} tickets est attendue.",
+      "en": "Import refused: a list of at most {max} issues is expected."
+    }
+  },
+  {
+    "id": "poker.error.import_empty",
+    "key": "poker.error.import_empty",
+    "text": {
+      "fr": "Aucun ticket valide à importer.",
+      "en": "No valid issue to import."
+    }
+  },
+  {
+    "id": "poker.error.import_limit",
+    "key": "poker.error.import_limit",
+    "text": {
+      "fr": "Limite de {max} tâches par salle : créez une nouvelle salle.",
+      "en": "Limit of {max} tasks per room: create a new room."
+    }
+  },
+  {
+    "id": "poker.error.host_stays",
+    "key": "poker.error.host_stays",
+    "text": {
+      "fr": "L'animateur ne peut pas se retirer.",
+      "en": "The host cannot remove themselves."
+    }
+  },
+  {
+    "id": "poker.error.join_first",
+    "key": "poker.error.join_first",
+    "text": {
+      "fr": "Rejoignez la salle d'abord.",
+      "en": "Join the room first."
+    }
+  },
+  {
+    "id": "poker.error.no_task",
+    "key": "poker.error.no_task",
+    "text": {
+      "fr": "Aucune tâche en cours.",
+      "en": "No task in progress."
+    }
+  },
+  {
+    "id": "poker.error.nickname_taken",
+    "key": "poker.error.nickname_taken",
+    "text": {
+      "fr": "Ce pseudo est déjà pris dans cette salle.",
+      "en": "This nickname is already taken in this room."
+    }
+  },
+  {
+    "id": "poker.error.bad_nickname",
+    "key": "poker.error.bad_nickname",
+    "text": {
+      "fr": "Pseudo invalide : 1 à 24 lettres, chiffres, espaces ou . ' - _",
+      "en": "Invalid nickname: 1 to 24 letters, digits, spaces or . ' - _"
+    }
+  },
+  {
+    "id": "poker.error.bad_secret",
+    "key": "poker.error.bad_secret",
+    "text": {
+      "fr": "Identité du navigateur invalide : rechargez la page.",
+      "en": "Invalid browser identity: reload the page."
+    }
+  },
+  {
+    "id": "poker.jira.not_jira",
+    "key": "poker.jira.not_jira",
+    "text": {
+      "fr": "Planning poker : ouvrez d'abord une page Jira (xxx.atlassian.net), puis cliquez sur ce favori. Ici, glissez-le dans votre barre de favoris.",
+      "en": "Planning poker: open a Jira page first (xxx.atlassian.net), then click this bookmark. Here, drag it to your bookmarks bar."
+    }
+  },
+  {
+    "id": "poker.jira.blocked",
+    "key": "poker.jira.blocked",
+    "text": {
+      "fr": "Planning poker : le navigateur a bloqué l'ouverture de la salle. Autorisez les fenêtres pop-up pour ce site.",
+      "en": "Planning poker: the browser blocked the room from opening. Allow pop-ups for this site."
+    }
+  },
+  {
+    "id": "poker.jira.status",
+    "key": "poker.jira.status",
+    "text": {
+      "fr": "Jira a répondu {status}. Êtes-vous connecté à Jira ?",
+      "en": "Jira answered {status}. Are you signed in to Jira?"
+    }
+  },
+  {
+    "id": "poker.jira.ask_key",
+    "key": "poker.jira.ask_key",
+    "text": {
+      "fr": "Planning poker : clé de l'epic ou du ticket à importer (ex. KP-12)",
+      "en": "Planning poker: key of the epic or issue to import (e.g. KP-12)"
+    }
+  },
+  {
+    "id": "poker.jira.no_key",
+    "key": "poker.jira.no_key",
+    "text": {
+      "fr": "Aucune clé de ticket reconnue.",
+      "en": "No issue key recognised."
+    }
+  },
+  {
+    "id": "poker.jira.none",
+    "key": "poker.jira.none",
+    "text": {
+      "fr": "Aucun ticket trouvé.",
+      "en": "No issue found."
+    }
+  },
+  {
+    "id": "poker.jira.failed",
+    "key": "poker.jira.failed",
+    "text": {
+      "fr": "Planning poker : {error}",
+      "en": "Planning poker: {error}"
+    }
+  }
+]

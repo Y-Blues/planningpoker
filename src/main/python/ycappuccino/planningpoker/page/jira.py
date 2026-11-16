@@ -12,12 +12,13 @@ READY, HELLO, IMPORT = "planningpoker:ready", "planningpoker:hello", "planningpo
 _ORIGIN = re.compile(r"https://[a-z0-9][a-z0-9-]*\.atlassian\.net")
 
 
-def bookmarklet(room_url: str) -> str:
-    """the javascript: link of static/jira_bookmarklet.js for a room's URL (the URL only, never the browser's secret):
-    comment lines and indentation dropped, lines joined"""
+def bookmarklet(room_url: str, texts: dict | None = None) -> str:
+    """the javascript: link of static/jira_bookmarklet.js for a room's URL (the URL only, never the browser's secret) and
+    its texts ({name: text}, strings.BOOKMARKLET_TEXTS translated): comment lines and indentation dropped, lines joined"""
     source = resources.files("ycappuccino.planningpoker").joinpath("static/jira_bookmarklet.js").read_text(encoding="utf-8")
     lines = (line.strip() for line in source.splitlines())
-    script = " ".join(line for line in lines if line and not line.startswith("//")).replace("__ROOM__", json.dumps(room_url))
+    script = " ".join(line for line in lines if line and not line.startswith("//")).replace("__ROOM__", json.dumps(room_url)) \
+        .replace("__TEXTS__", json.dumps(texts or {}, ensure_ascii=False))
     return "javascript:" + quote(script, safe="!$&'()*+,;=:@/?-._~")
 
 

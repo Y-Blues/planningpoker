@@ -16,6 +16,5 @@
  ],
  "components": {
   "PyodidePage": {"mount_selector": "#app", "stylesheets": "poker.css"}
- },
- "lang": "fr"
+ }
 }

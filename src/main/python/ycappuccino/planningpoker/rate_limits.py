@@ -8,11 +8,12 @@ Counters live in this process only, like PasswordLogin's: a restart forgets them
 
 from ycappuccino.api.endpoints_storage import InvalidRequest
 from ycappuccino.api.http_server import VISITOR_ADDRESS
+from ycappuccino.api.messages import coded
 from ycappuccino.permissions.throttle import Throttle
 
 from ycappuccino.planningpoker.api import IRateLimits
 
-TOO_MANY = "Trop de tentatives, réessayez plus tard."
+TOO_MANY = coded("poker.error.too_many")
 _DEFAULTS = {"create": [10, 3600], "join_failure": [30, 600], "action": [300, 60], "import": [20, 3600]}
 _KEPT = 10000  # throttles beyond it: the idle ones dropped
 

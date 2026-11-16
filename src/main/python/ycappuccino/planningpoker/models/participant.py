@@ -4,7 +4,7 @@ from ycappuccino.core.decorator_app import Dimension
 
 
 @Dimension(name="planningpoker")
-@Item(collection="poker_participants", expire_after={"field": "_mat", "seconds": 30 * 86400}, name="poker_participant", plural="poker_participants")
+@Item(collection="poker_participants", shared=True, expire_after={"field": "_mat", "seconds": 30 * 86400}, name="poker_participant", plural="poker_participants")
 class PokerParticipant(Model):
     """a nickname in a room, bound to the sha256 of its browser's secret"""
 

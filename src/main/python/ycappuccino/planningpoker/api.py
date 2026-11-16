@@ -5,13 +5,14 @@ from abc import ABC, abstractmethod
 
 from ycappuccino.api.core_base import YCappuccinoComponent
 from ycappuccino.api.decorators import rpc_method
+from ycappuccino.api.messages import coded
 
 ROOM_ITEM = "poker_room"
 PARTICIPANT_ITEM = "poker_participant"
 TASK_ITEM = "poker_task"
 VOTE_ITEM = "poker_vote"
 TOPIC_PREFIX = "planningpoker."
-NOT_FOUND = "Salle introuvable."
+NOT_FOUND = coded("poker.error.not_found")   # api.messages: the page shows it in its language
 
 
 def room_topic(room: str) -> str:
