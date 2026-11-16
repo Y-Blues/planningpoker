@@ -171,6 +171,7 @@ def jira_import(context, alice, bob):
     alice.click(".pp-tutorial .yc-drawer-close")
     alice.wait_for_selector(".pp-tutorial[aria-hidden=true]", state="attached", timeout=T)
     alice.set_viewport_size({"width": 768, "height": 900})
+    alice.evaluate("window.scrollTo(0, 0)")
     alice.wait_for_timeout(300)
     check("at 768px the host's header: the switch on the brand's line, the tools below from the left", alice.evaluate(
         "(() => { const b = document.querySelector('.pp-brand').getBoundingClientRect();"
