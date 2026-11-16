@@ -143,3 +143,73 @@ Reran: poker unit 96 OK; ui_web test_theme + test_language 16 OK. Read: e2e logs
       switch lands alone at the line's start. Fix it with 3 together, and with 10 if the order changes;
     - on 9 ("html lang set at start"): at PokerPage start, which is after the Pyodide boot (see 7);
     - on 10: no challenge.
+
+## Confirmation (ARCHITECTE + ERGONOME)
+
+Date: 2026-11-16. Scope: ui_web-steps tag v0.6.90.4 (23f2ceb) vs v0.6.90.3.1; planningpoker `git diff 00f67da 466ee58`;
+deploy/wheels ui_web 0.6.90.4 wheel vs the tag; image ec6c8c5d7648 stage logs v0104/e2e_{fr,en}.log, e2e_fr-r1b-flake.log,
+stage_app.log; shots v0104/shots/{fr,en} (1e, 6d, 6f, 6g, 8_queue, 9b). Reran: poker unit 96 OK.
+
+**Verdict: FAIL** (1 blocker, release mechanics only; the poker code and UX pass. Re-gate narrowly, see 1)
+
+1. **blocker** (ARCHITECTE 1 re-opened by a tag move), v0.6.90.3.1 is NOT an ancestor of v0.6.90.4.
+   - `git merge-base --is-ancestor v0.6.90.3.1 v0.6.90.4` fails. The rebase (steps reflog, 19:16) went onto 1416fcc.
+     wm16 then moved its local tag v0.6.90.3.1 to 7a727e9 at 19:19 (current_tasks 19:19, "PaneLayout review round 1").
+   - 23f2ceb therefore lacks what 7a727e9 adds: `has-grip-before` / `--yc-grip-room`, `set_collapsed(keep=)`, one hide
+     button per pane, the grip line and reveal-hover CSS, « double-clic », and 4 pane tests.
+   - The wheel and image ec6c8c5d7648 carry the old pane code. A website lock bump to 0.6.90.4 would silently undo
+     webmail's review fixes, and a pin of `>=0.6.90.3.1` would accept the result. The releases.lock:16 comment
+     ("on v0.6.90.3.1") is untrue as it stands.
+   - Fix (cheap, nothing is pushed):
+     - first have wm16 confirm that 7a727e9 is final;
+     - rebase 23f2ceb onto 7a727e9 (`git merge-tree` is clean, no conflict) and move the local tag v0.6.90.4;
+     - rerun the ui_web suite and rebuild the wheel and the image.
+   - Impacted gate: 1416fcc..7a727e9 touches only pane_layout.py, resize_grip.py and the theme.css pane rules. Poker
+     uses no PaneLayout, ResizeGrip or .yc-panes (grep), so one staged e2e pass (FR with restart + EN) on the new
+     image is enough. No further review round is needed if the only difference is the rebase.
+2. **ok**, wheel = tag. theme.css, assets/controls.css, language.py, pane_layout.py, theme.py, drawer.py, steps.py and
+   resize_grip.py are byte-identical to `git show v0.6.90.4:` (145 files each side). METADATA Version 0.6.90.4, and
+   pyproject 0.6.90.4.
+3. **ok**, ARCH 9: the drawer.py:4 and steps.py:6 docstrings now name assets/controls.css.
+4. **ok**, ARCH 10 and ERGO 3 and 4 are resolved together.
+   - In the DOM the switch now comes before the tools (poker_page.py:419), so tab order = visual order.
+   - `.pp-tools` is left-aligned (poker.css:98), and the tools have their own line ≤920 px (poker.css:445).
+   - Shots: fr/6g and en/6g (768 px) show the switch on the brand's line and the tools below from the left, with an
+     e2e check; fr/9b (360) has « Copier le lien » left-aligned on the 2nd row.
+   - Side effect at desktop width (fr/8_queue): the switch now sits between the brand and the identity chip, not at
+     the far right. This is acceptable, as the price of DOM order = visual order; no change asked.
+5. **ok**, ARCH 4: the scoping comment is at poker.css:373.
+6. **ok**, ERGO 7: NBSP across the FR seed.
+   - A scan of all 139 FR entries finds no ordinary space before « : ; ? ! » or inside « », and no NBSP in the EN
+     entries. The convention is U+00A0 before « : » and inside « », U+202F before ; ? !.
+   - The tip_nothing reword reads well (fr/6d) and matches the banner key poker.import.received_many (« tickets reçus »).
+7. **ok**, ERGO 6 and coverage: fr/6f and en/6f show the read-only note, the « Ça ne marche pas ? » heading and the
+   full Edge tip with NBSP. 1e_welcome_360 fits (brand and switch on one line, no overflow).
+8. **ok**, `self._texts = Locale()` in __init__ (poker_page.py:71): `_texts` is first read in start(), after
+   `strings.packaged(...)` replaces it (:86, :108), so the nit is resolved safely.
+9. **minor** (not blocking), the FR restart flake is test timing, not a product regression.
+   - The client's subscriber reconnects with backoff 1→2→4→8→16→30 s (client subscriber.py:51-52 and 143-150). The
+     e2e gives Chloé's kept-open page a fixed 8 s after Bob's reload, plus 20 s, to show "removed". A restart that
+     ends just after a backoff slot can push her reconnect past that window.
+   - The catch-up path (b47ad0b: a participant removed while disconnected is told on reconnect) covers the late case.
+     Two of three runs on the same image passed, and nothing in this release touches the client or the room port.
+   - The product effect is pre-existing: a page left open across a deploy can stay stale for up to ~30 s.
+   - Harden the e2e later: wait for the kept-open pages to be reconnected, or give that one step ≥45 s, instead of
+     the fixed 8 s (e2e_poker.py:461, :467).
+10. **ok, left reasonably**: ERGO 1 (an optional "Auto" tooltip) and the ARCH 5 and 7 nits (duplicate defaults, the
+    error prefix, LanguageSwitch built twice, no `lang` during the Pyodide boot because of rule 7b).
+11. **ok**, rules 1-7c: no new @Item, component or JS; reuse unchanged; KISS. This cross-checks ARCH R1 and ERGO R1
+    (no challenge, apart from 1, which supersedes ARCH 1's "done").
+
+## Builder's closing note (confirmation blocker)
+
+Date: 2026-11-16. The confirmation's blocker is fixed as it asked. wm16 had moved its local tag v0.6.90.3.1 to 7a727e9.
+- ui_web `steps` is rebased onto 7a727e9 as 40e445b. There was no conflict. The local tag v0.6.90.4 was moved there, and v0.6.90.3.1 is now its ancestor.
+- The ui_web suite passes: 1469 OK.
+- The wheel was rebuilt from the tag and matches it (pane_layout.py compared).
+- The image localhost/planningpoker:v0.1.0.4 was rebuilt as 2972046ac968, with poker unchanged at 21410cb.
+- One staged pass behind httpd: FR 60/60 with the container restart, EN 59/59, 0 ERROR, 0 Traceback.
+
+If wm16 moves v0.6.90.3.1 again before it is pushed, rebase `steps` again the same way.
+
+The restart-step flake (minor 6 of the confirmation) is left for later, as that review advised.
