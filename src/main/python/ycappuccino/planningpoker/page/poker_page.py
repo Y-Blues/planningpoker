@@ -102,20 +102,20 @@ class PokerPage(ISubscriber, ISubscriptionListener):
 
     async def _load_texts(self) -> str:
         """the storage's languages and texts ("" once read); while the server starts they are asked again, then the
-        built-in texts stay and the error is named (the returned key, also logged)"""
+        shipped seed's texts stay (strings.packaged) and the error is named (the returned key, also logged)"""
         for attempt in range(TEXTS_TRIES):
             try:
                 texts = await strings.load(self._source)
             except Exception as error:
                 if not transport_failure(error) or attempt == TEXTS_TRIES - 1:
                     _logger.error("the poker's texts (language, translation) are not readable: %s", error)
-                    self._texts = built_in_locale(self._dom.languages())
+                    self._texts = strings.packaged(self._dom.languages())
                     return error_key(error) or "ui.server_error"
                 await asyncio.sleep(TEXTS_WAIT)
                 continue
             if "poker.brand" not in texts.strings:   # refused or not seeded: never a page of bare keys without a word
                 _logger.error("the poker's texts are missing from the translation item (seed planningpoker-texts)")
-                self._texts = built_in_locale(self._dom.languages())
+                self._texts = strings.packaged(self._dom.languages())
                 return "ui.server_error"
             self._texts = texts
             return ""

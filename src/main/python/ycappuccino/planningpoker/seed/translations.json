@@ -396,7 +396,7 @@
     "key": "poker.tutorial.s4.text",
     "text": {
       "fr": "Cliquez sur « Planning poker ← Jira » dans la barre de favoris. Cette salle s'ouvre et reçoit les tickets.",
-      "en": "Click « Planning poker ← Jira » in the bookmarks bar. This room opens and receives the issues."
+      "en": "Click “Planning poker ← Jira” in the bookmarks bar. This room opens and receives the issues."
     }
   },
   {
@@ -412,7 +412,7 @@
     "key": "poker.tutorial.s5.text",
     "text": {
       "fr": "Dans la salle, l'animateur clique sur Importer. Les tickets arrivent dans « À jouer » : cliquez sur celui à estimer. Le récapitulatif les range en Epic › Story › Sous-tâche, avec les totaux.",
-      "en": "In the room, the host clicks Import. The issues arrive in « Up next »: click the one to estimate. The summary sorts them as Epic › Story › Sub-task, with the totals."
+      "en": "In the room, the host clicks Import. The issues arrive in “Up next”: click the one to estimate. The summary sorts them as Epic › Story › Sub-task, with the totals."
     }
   },
   {
@@ -444,7 +444,7 @@
     "key": "poker.tutorial.tip_drag.text",
     "text": {
       "fr": "Firefox : clic droit sur le bouton › Marquer ce lien. Chrome, Edge : cliquez sur « Copier le favori », puis clic droit sur la barre de favoris › Ajouter une page, nommez-la « Planning poker ← Jira » et collez dans le champ URL.",
-      "en": "Firefox: right-click the button › Bookmark Link. Chrome, Edge: click « Copy the bookmark », then right-click the bookmarks bar › Add page, name it « Planning poker ← Jira » and paste into the URL field."
+      "en": "Firefox: right-click the button › Bookmark Link. Chrome, Edge: click “Copy the bookmark”, then right-click the bookmarks bar › Add page, name it “Planning poker ← Jira” and paste into the URL field."
     }
   },
   {
@@ -476,7 +476,7 @@
     "key": "poker.tutorial.tip_popup",
     "text": {
       "fr": "« Le navigateur a bloqué l'ouverture de la salle »",
-      "en": "« The browser blocked the room from opening »"
+      "en": "“The browser blocked the room from opening”"
     }
   },
   {
@@ -492,7 +492,7 @@
     "key": "poker.tutorial.tip_login",
     "text": {
       "fr": "« Jira a répondu 401 » (ou 403)",
-      "en": "« Jira answered 401 » (or 403)"
+      "en": "“Jira answered 401” (or 403)"
     }
   },
   {
@@ -508,7 +508,7 @@
     "key": "poker.tutorial.tip_none",
     "text": {
       "fr": "« Aucun ticket trouvé »",
-      "en": "« No issue found »"
+      "en": "“No issue found”"
     }
   },
   {
@@ -531,8 +531,8 @@
     "id": "poker.tutorial.tip_nothing.text",
     "key": "poker.tutorial.tip_nothing.text",
     "text": {
-      "fr": "Gardez cette salle ouverte dans le même navigateur, avec le compte de l'animateur, puis cliquez à nouveau sur le favori depuis Jira.",
-      "en": "Keep this room open in the same browser, as the host, then click the bookmark again from Jira."
+      "fr": "Gardez cette salle ouverte dans le navigateur de l'animateur, puis cliquez à nouveau sur le favori depuis Jira.",
+      "en": "Keep this room open in the host's browser, then click the bookmark again from Jira."
     }
   },
   {

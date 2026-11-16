@@ -123,6 +123,7 @@ class TestStoredTexts(Page):
             await self.open(crud=crud)
         self.assertFalse(self.hidden("error"))
         self.assertNotIn("poker.", self.page._ui["error"].text)
+        self.assertEqual(self.page._ui["enter"].text, "Créer une salle")   # the shipped texts, never a bare key
 
 
 class TestStrings(unittest.TestCase):
