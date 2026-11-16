@@ -58,10 +58,13 @@ def _browser(b: Builder, figure: Any, keys: bool = False, dragging: bool = False
         b.dom.set_text(b.element(bar, "span", "pp-ill-pointer"), "👆")
     page = b.element(window, "div", "pp-ill-page")
     if keys:
-        for index, key in enumerate(("Ctrl / ⌘", "Shift", "B")):
+        for index, key in enumerate(("poker.tutorial.key_ctrl", "poker.tutorial.key_shift", "")):
             if index:
                 b.dom.set_text(b.element(page, "span", "pp-ill-plus"), "+")
-            b.dom.set_text(b.element(page, "kbd", "pp-ill-key"), key)
+            if key:   # a key's name in the page's language (« Maj » / "Shift"), relabelled with the texts
+                b.element(page, "kbd", "pp-ill-key", key)
+            else:     # a letter, the same in every language
+                b.dom.set_text(b.element(page, "kbd", "pp-ill-key"), "B")
     elif dragging:
         b.dom.set_text(b.element(page, "span", "pp-ill-arrow"), "↑")
     else:

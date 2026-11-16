@@ -1,6 +1,7 @@
 """The page's language: the browser's (English for en*, else French), the header's switch over it, kept by the browser;
 every text from strings.py, the server's refusals (coded messages) too."""
 
+import asyncio
 import re
 import unittest
 import urllib.parse
@@ -13,7 +14,10 @@ from ycappuccino.ui.strings import DEFAULT_STRINGS
 from ycappuccino.planningpoker.deck import format_average
 from ycappuccino.planningpoker.page import view
 from ycappuccino.planningpoker.strings import BOOKMARKLET_TEXTS, LANGUAGE_PREFERENCE
-from test_page import ROOM, FakeCrud, Page, seeded, state, texts
+from ycappuccino.ui_web.testing import FakeDom
+
+from ycappuccino.planningpoker.page.poker_page import PokerPage
+from test_page import ROOM, FakeCrud, FakePage, FakePoker, FakeSubscriptions, Page, seeded, state, texts
 
 POKER_STRINGS = {record["key"]: record["text"] for record in seeded("ycappuccino.planningpoker", "seed/translations.json")}
 
@@ -86,6 +90,7 @@ class TestTutorial(Page):
                                       "Cliquez sur le favori", "Confirmez, puis jouez"])
         self.assertEqual([element.text for element in self.find(".yc-step-number")], ["1", "2", "3", "4", "5"])
         self.assertEqual(len(self.find(".yc-step-figure")), 5)
+        self.assertEqual([key.text for key in self.find(".pp-ill-key")], ["Ctrl / ⌘", "Maj", "B"])
         link = self.page._ui["bookmarklet"]
         self.assertTrue(link.attrs["href"].startswith("javascript:"))
         await self.dom.click(self.page._ui["bookmarklet_copy"])
@@ -94,6 +99,7 @@ class TestTutorial(Page):
         self.page._ui["language"].value = "en"
         await self.dom.change(self.page._ui["language"])
         self.assertEqual(self.find(".yc-step-title")[0].text, "Show the bookmarks bar")
+        self.assertEqual([key.text for key in self.find(".pp-ill-key")], ["Ctrl / ⌘", "Shift", "B"])
         self.assertEqual(self.find(".yc-drawer-title")[0].text, "Import from Jira, step by step")
         self.assertIn("open a Jira page first", urllib.parse.unquote(link.attrs["href"]))
         await self.dom.escape()
@@ -108,7 +114,40 @@ class TestStoredTexts(Page):
         asked = {item: params for item, params in self.crud.asked}
         self.assertEqual(set(asked), {"language", "translation"})
         self.assertTrue(asked["translation"].get("inherit"))   # ycappuccino.ui.i18n: the organization's, then the platform's
-        self.assertEqual([option.text for option in self.page._ui["language"].children], ["Auto (navigateur)", "Français", "English"])
+        self.assertEqual([option.text for option in self.page._ui["language"].children], ["Auto", "Français", "English"])
+        label = self.find(".yc-language")[0]
+        self.assertIs(label.children[1], self.page._ui["language"])
+        self.assertEqual((label.tag, label.attrs["class"], label.children[0].text), ("label", "yc-language", "🌐"))
+
+    async def test_the_items_are_the_page_s_properties(self):
+        crud = FakeCrud()
+        crud.items = {"site_language": crud.items["language"], "site_translation": crud.items["translation"]}
+        dom = FakeDom("/")
+        dom.browser_languages = ["en"]
+        page = PokerPage(FakePage(dom), FakePoker(), FakeSubscriptions(), crud,
+                         language_item="site_language", translation_item="site_translation")
+        await page.start()
+        await page._loading
+        self.assertEqual({item for item, _ in crud.asked}, {"site_language", "site_translation"})
+        self.assertEqual(page._ui["enter"].text, "Create a room")
+
+    async def test_the_document_s_language_is_set_before_the_texts_are_read(self):
+        crud = FakeCrud()
+        released = asyncio.Event()
+        read = crud.get_many
+
+        async def slow(item, params, subject=None):
+            await released.wait()
+            return await read(item, params, subject)
+
+        crud.get_many = slow
+        dom = FakeDom("/")
+        dom.browser_languages = ["en-GB"]
+        starting = asyncio.ensure_future(PokerPage(FakePage(dom), FakePoker(), FakeSubscriptions(), crud).start())
+        await asyncio.sleep(0)
+        self.assertEqual(dom.lang, "en")   # the storage not answered yet
+        released.set()
+        await starting
 
     async def test_a_text_edited_in_the_storage_is_the_one_shown(self):
         crud = FakeCrud()

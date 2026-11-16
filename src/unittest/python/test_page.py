@@ -70,12 +70,12 @@ class FakeCrud:
 
 
 def texts():
-    """the Locale the page reads from FakeCrud (strings.load)"""
+    """the Locale the page reads from FakeCrud (ui.i18n.load_locale)"""
     import asyncio
     from ycappuccino.ui.datasource import PagedSource
+    from ycappuccino.ui.i18n import I18nItems, load_locale
     from ycappuccino.ui.ycappuccino_transport import CrudDataSource
-    from ycappuccino.planningpoker import strings
-    return asyncio.run(strings.load(PagedSource(CrudDataSource(FakeCrud()))))
+    return asyncio.run(load_locale(PagedSource(CrudDataSource(FakeCrud())), items=I18nItems("language", "translation")))
 
 
 class FakeSubscriptions:

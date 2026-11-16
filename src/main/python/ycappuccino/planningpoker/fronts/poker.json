@@ -15,6 +15,7 @@
   "ycappuccino.planningpoker.page.poker_page"
  ],
  "components": {
-  "PyodidePage": {"mount_selector": "#app", "stylesheets": "poker.css"}
+  "PyodidePage": {"mount_selector": "#app", "stylesheets": "poker.css"},
+  "PokerPage": {"language_item": "language", "translation_item": "translation"}
  }
 }

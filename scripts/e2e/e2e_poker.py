@@ -36,13 +36,15 @@ TEXTS = {   # what the page says, written here by hand (not read from strings.py
            "task": "Tâche {}", "join": "Rejoindre la salle", "taken": "déjà pris", "average": "Moyenne", "nearest": "Carte la plus proche",
            "average_value": "5,3", "revote": "Revoter", "removed": "retiré", "remove": "Retirer {}", "lock": "Verrouiller",
            "unlock": "Déverrouiller", "locked": "verrouillée", "not_found": "Salle introuvable.", "create": "Créer une salle",
-           "recap": ["Tâche", "Estimation", "Σ dessous", "÷ 8"], "kinds": ["Epic", "Story", "Sous-tâche"], "html": "fr"},
+           "recap": ["Tâche", "Estimation", "Σ dessous", "÷ 8"], "kinds": ["Epic", "Story", "Sous-tâche"], "html": "fr",
+           "keys": ["Ctrl / ⌘", "Maj", "B"]},
     "en": {"import_help": "📥 Import from Jira", "tutorial": ["Show the bookmarks bar", "Open Jira"], "readonly": "nothing is ever written", "received": "4 issues received from test.atlassian.net",
            "footer": "Powered by iPOPO and YCappuccino", "host": "host", "copy": "Copy link", "copied": "Link copied ✓",
            "task": "Task {}", "join": "Join the room", "taken": "already taken", "average": "Average", "nearest": "Closest card",
            "average_value": "5.3", "revote": "Vote again", "removed": "removed", "remove": "Remove {}", "lock": "Lock",
            "unlock": "Unlock", "locked": "locked", "not_found": "Room not found.", "create": "Create a room",
-           "recap": ["Task", "Estimate", "Σ below", "÷ 8"], "kinds": ["Epic", "Story", "Sub-task"], "html": "en"},
+           "recap": ["Task", "Estimate", "Σ below", "÷ 8"], "kinds": ["Epic", "Story", "Sub-task"], "html": "en",
+           "keys": ["Ctrl / ⌘", "Shift", "B"]},
 }
 L = TEXTS[LANG]
 OTHER = TEXTS["en" if LANG == "fr" else "fr"]
@@ -144,11 +146,24 @@ def jira_import(context, alice, bob):
           L["readonly"] in alice.inner_text(".pp-tutorial-readonly") and alice.locator(".pp-tutorial ul.yc-steps > li").count() == 6, str(titles))
     alice.screenshot(path=os.path.join(SHOTS, "6_import_help.png"))
     alice.locator(".pp-tutorial .yc-drawer-body").screenshot(path=os.path.join(SHOTS, "6c_tutorial_panel.png"))
+    keys = alice.locator(".pp-tutorial .pp-ill-key").all_inner_texts()
+    check("step 1's figure names the keys in the page's language", keys == L["keys"], str(keys))
+    alice.evaluate("document.querySelector('.pp-tutorial .yc-drawer-body').scrollTop = 1e6")
+    alice.wait_for_timeout(200)
+    check("the how-to's end (steps 4-5, read only, the tips) is reached by scrolling its panel",
+          alice.evaluate("(() => { const b = document.querySelector('.pp-tutorial .yc-drawer-body'); const r = b.getBoundingClientRect();"
+                         " const last = document.querySelector('.pp-tutorial ul.yc-steps > li:last-child').getBoundingClientRect();"
+                         " return b.scrollTop > 0 && last.bottom <= r.bottom + 1; })()"))
+    alice.screenshot(path=os.path.join(SHOTS, "6d_tutorial_end.png"))
+    alice.evaluate("document.querySelector('.pp-tutorial .yc-drawer-body').scrollTop = 0")
     alice.set_viewport_size({"width": 360, "height": 780})
     alice.wait_for_timeout(400)
     check("the how-to fits a 360px screen (a bottom sheet)", alice.evaluate(
         "document.documentElement.scrollWidth <= window.innerWidth && document.querySelector('.pp-tutorial').getBoundingClientRect().right <= window.innerWidth"))
     alice.screenshot(path=os.path.join(SHOTS, "6b_import_help_360.png"))
+    alice.evaluate("document.querySelector('.pp-tutorial .yc-drawer-body').scrollTop = 1e6")
+    alice.wait_for_timeout(200)
+    alice.screenshot(path=os.path.join(SHOTS, "6e_tutorial_end_360.png"))
     alice.set_viewport_size({"width": 1280, "height": 720})
     alice.click(".pp-tutorial .yc-drawer-close")
     alice.wait_for_selector(".pp-tutorial[aria-hidden=true]", state="attached", timeout=T)
@@ -349,6 +364,12 @@ def run(playwright):
     chloe.set_viewport_size({"width": 360, "height": 780})
     chloe.click(".pp-edit")
     chloe.wait_for_selector("#pp-profile:not([hidden])", timeout=T)
+    check("at 360px the language switch (🌐) sits on the brand's line, the tools on the next one", chloe.evaluate(
+        "(() => { const b = document.querySelector('.pp-brand').getBoundingClientRect();"
+        " const l = document.querySelector('.pp-header .yc-language').getBoundingClientRect();"
+        " const t = document.querySelector('.pp-tools').getBoundingClientRect();"
+        " return Math.abs((l.top + l.bottom) - (b.top + b.bottom)) < 12 && t.top >= b.bottom - 1 && l.right <= window.innerWidth"
+        " && document.querySelector('.pp-header .yc-language-icon').textContent === '🌐'; })()"))
     check("the profile panel fits a 360px screen", chloe.evaluate(
         "document.documentElement.scrollWidth <= window.innerWidth && document.getElementById('pp-profile').getBoundingClientRect().right <= window.innerWidth"))
     chloe.screenshot(path=os.path.join(SHOTS, "1d_profile_panel_360.png"), full_page=True)

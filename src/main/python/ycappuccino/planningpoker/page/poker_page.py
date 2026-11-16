@@ -1,6 +1,7 @@
-"""PokerPage: the planning poker's page, in the languages and with the texts of the storage (the `language` and
-`translation` items, read over ICrud as the Y.Blues site reads them: strings.load): the browser's language, or the one
-picked in the header's ui_web LanguageSwitch, kept by the browser. Its room is the address's hash (`#<room id>`: never sent to the server
+"""PokerPage: the planning poker's page, in the languages and with the texts of the storage (the items named by its
+`language_item` and `translation_item` properties, read over ICrud as the Y.Blues site reads them: ui.i18n.load_locale):
+the browser's language, or the one picked in the header's ui_web LanguageSwitch, kept by the browser; until they are
+read, the shipped seed's texts and the document's language at once. Its room is the address's hash (`#<room id>`: never sent to the server
 nor kept in its logs); its identity a secret this browser draws once and keeps (localStorage), bound by the server to the
 nickname it joins with. It follows the room's topic (pubsub) and draws each state it receives; a (re)subscription asks
 the state again, so nothing is missed across a reconnection. Draws through the page's DomBinding only."""
@@ -14,12 +15,13 @@ from ycappuccino.api.endpoints_storage import ICrud
 from ycappuccino.api.pubsub import ISubscriber, ISubscriptionListener, ISubscriptions
 from ycappuccino.ui.datasource import PagedSource
 from ycappuccino.ui.errors import error_key, transport_failure
-from ycappuccino.ui.i18n import Locale, built_in_locale
+from ycappuccino.ui.i18n import I18nItems, Locale, load_locale
 from ycappuccino.ui.ycappuccino_transport import CrudDataSource
 from ycappuccino.ui_web.builder import Builder
 from ycappuccino.ui_web.drawer import Drawer
 from ycappuccino.ui_web.language import LanguageSwitch
 from ycappuccino.ui_web.page import IWebPage
+from ycappuccino.ui_web.theme import install_controls
 
 from ycappuccino.planningpoker.api import NOT_FOUND, IPlanningPoker, room_topic
 from ycappuccino.planningpoker.deck import AVATARS, DECK, NICKNAME_MAX, is_room_id
@@ -41,8 +43,10 @@ TEXTS_TRIES, TEXTS_WAIT = 15, 2.0  # the texts asked again while the server star
 
 class PokerPage(ISubscriber, ISubscriptionListener):
 
-    def __init__(self, page: IWebPage, poker: IPlanningPoker, subscriptions: ISubscriptions, crud: ICrud) -> None:
+    def __init__(self, page: IWebPage, poker: IPlanningPoker, subscriptions: ISubscriptions, crud: ICrud,
+                 language_item: str = "language", translation_item: str = "translation") -> None:
         self._page = page
+        self._items = I18nItems.named(language_item, translation_item)
         self._source = PagedSource(CrudDataSource(crud))
         self._poker = poker
         self._subscriptions = subscriptions
@@ -64,7 +68,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._drawn: Optional[dict] = None  # the state drawn last (its stamp aside)
         self._pending: Optional[tuple[str, list]] = None  # (Jira site, tickets) received, waiting for the host's OK
         self._since = 0.0  # when the current moments started (a redraw resumes them where they are)
-        self._texts: Locale = built_in_locale()   # the storage's languages and texts, every language
+        self._texts: Locale = strings.packaged()   # the storage's languages and texts, every language
         self._locale: Locale = self._texts   # the same, in the language shown
         self._language: Optional[LanguageSwitch] = None
         self._b: Optional[Builder] = None  # the static texts, relabelled when the language changes
@@ -78,12 +82,11 @@ class PokerPage(ISubscriber, ISubscriptionListener):
     async def start(self) -> None:
         self._dom = self._page.navigator().dom
         self._b = Builder(self._dom, self.t)
+        install_controls(self._dom)   # the how-to's Drawer and StepList (their structure; poker.css gives the colours)
+        self._texts = strings.packaged(self._dom.languages())   # the document's language at once, not after the texts
+        self._show_language()
         problem = await self._load_texts()
-        self._language = LanguageSwitch(self._dom, self._texts.languages, preference=LANGUAGE_PREFERENCE,
-                                        on_change=self._language_changed)
-        self._locale = self._texts.with_language(self._language.effective())
-        self._language.set_auto_label(self.t("ui.language_auto"))
-        self._dom.set_document(self.t("poker.brand"), self._locale.language)
+        self._show_language()
         self._secret = self._dom.load_preference(SECRET_KEY) or ""
         if len(self._secret) < 32:
             self._secret = browser.new_secret()
@@ -100,22 +103,28 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         self._loading = asyncio.ensure_future(self.open_room(self._hash()))
         self._beating = asyncio.ensure_future(self._heartbeat())
 
+    def _show_language(self) -> None:
+        """the switch over the texts' languages, the texts and the document in the language it shows"""
+        self._language = LanguageSwitch(self._dom, self._texts.languages, preference=LANGUAGE_PREFERENCE,
+                                        on_change=self._language_changed, icon="🌐")
+        self._locale = self._texts.with_language(self._language.effective())
+        self._language.set_auto_label(self.t("poker.language_auto"))
+        self._dom.set_document(self.t("poker.brand"), self._locale.language)
+
     async def _load_texts(self) -> str:
         """the storage's languages and texts ("" once read); while the server starts they are asked again, then the
-        shipped seed's texts stay (strings.packaged) and the error is named (the returned key, also logged)"""
+        shipped seed's texts stay (strings.packaged, read at start) and the error is named (the returned key, also logged)"""
         for attempt in range(TEXTS_TRIES):
             try:
-                texts = await strings.load(self._source)
+                texts = await load_locale(self._source, items=self._items)
             except Exception as error:
                 if not transport_failure(error) or attempt == TEXTS_TRIES - 1:
                     _logger.error("the poker's texts (language, translation) are not readable: %s", error)
-                    self._texts = strings.packaged(self._dom.languages())
                     return error_key(error) or "ui.server_error"
                 await asyncio.sleep(TEXTS_WAIT)
                 continue
             if "poker.brand" not in texts.strings:   # refused or not seeded: never a page of bare keys without a word
                 _logger.error("the poker's texts are missing from the translation item (seed planningpoker-texts)")
-                self._texts = strings.packaged(self._dom.languages())
                 return "ui.server_error"
             self._texts = texts
             return ""
@@ -125,7 +134,7 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         """the page's texts in the new language, at once (nothing rebuilt: the inputs keep what is typed)"""
         self._locale = self._texts.with_language(language)
         self._dom.set_document(self.t("poker.brand"), self._locale.language)
-        self._language.set_auto_label(self.t("ui.language_auto"))
+        self._language.set_auto_label(self.t("poker.language_auto"))
         self._b.relabel()
         self._tutorial.set_title(self.t("poker.tutorial.title"), self.t("poker.close"))
         self._error(self._error_text)
@@ -407,14 +416,13 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         app = self._el(mount, "div", "pp-app")
         header = self._el(app, "header", "pp-header")
         self._el(header, "span", "pp-brand", key="poker.brand")
-        end = self._el(header, "div", "pp-header-end")
-        ui["tools"] = tools = self._el(end, "div", "pp-tools")
+        ui["tools"] = tools = self._el(header, "div", "pp-tools")
         ui["me"] = self._el(tools, "span", "pp-me")
         ui["edit"] = self._button(tools, "pp-button pp-ghost pp-edit", "", self.toggle_profile, key="poker.edit",
                                   keys={"title": "poker.edit.title"}, aria_expanded="false", aria_controls="pp-profile")
         ui["lock"] = self._button(tools, "pp-button pp-ghost", "", self.toggle_lock)
         ui["copy"] = self._button(tools, "pp-button pp-ghost", "", self.copy_link, key="poker.copy_link")
-        ui["language"] = self._language.render(end)
+        ui["language"] = self._language.render(header)   # on the brand's line on a phone (poker.css)
         self._b.text(ui["language"], "poker.language", "aria-label")
         ui["error"] = self._el(app, "p", "pp-error", role="alert", hidden="")
 

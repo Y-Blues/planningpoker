@@ -1,6 +1,6 @@
 [project]
 name = "ycappuccino-planningpoker"
-version = "0.1.0.3"
+version = "0.1.0.4"
 description = "Planning poker on YCappuccino: anonymous nicknames, a shared room, live votes over WebSocket, a Pyodide page"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
@@ -17,7 +17,7 @@ dependencies = [
     "ycappuccino-permissions",  # its Throttle (rate limits) and TokenRights (the anonymous caller reads the texts only)
     "ycappuccino-client",
     "ycappuccino-ui",
-    "ycappuccino-ui-web>=0.6.90.3",  # LanguageSwitch, Builder, Drawer, StepList
+    "ycappuccino-ui-web>=0.6.90.4",  # LanguageSwitch (icon), Builder, Drawer, StepList, install_controls
     "ycappuccino-ui-content",        # the language and translation items, the platform's languages and texts (seed)
 ]
 
