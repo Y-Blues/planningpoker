@@ -331,7 +331,8 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
 .pp-recap-table th { font-size: 12px; color: var(--pp-muted); font-weight: 650; text-transform: uppercase; letter-spacing: .5px; }
 .pp-key { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; }
 .pp-recap-table tbody td:nth-child(2) { font-weight: 750; }
-.pp-recap-table .pp-sub { color: var(--pp-muted); font-weight: 650; }
+.pp-recap-table .pp-sub, .pp-recap-table .pp-divided { color: var(--pp-muted); font-weight: 650; }
+.pp-recap-table .pp-divided { padding-left: 12px; white-space: nowrap; }   /* not read as one number with Σ */
 .pp-recap-table tr.is-parent > td { background: var(--pp-surface-2); }
 .pp-recap-table tr.is-parent .pp-key { font-weight: 800; }
 .pp-recap-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
@@ -408,7 +409,8 @@ button.pp-avatar:hover { transform: scale(1.1) rotate(-6deg); }
   .pp-depth-2 .pp-recap-task { padding-left: 24px; }
   .pp-depth-3 .pp-recap-task { padding-left: 36px; }
   .pp-depth-4 .pp-recap-task { padding-left: 48px; }
-  .pp-recap-table th, .pp-recap-table td { padding: 8px 5px; }
+  .pp-recap-table th, .pp-recap-table td { padding: 8px 4px; }
+  .pp-recap-table th { font-size: 11px; letter-spacing: 0; }
   .pp-stat:nth-child(-n+2) dd { font-size: 32px; }
   .pp-stat dd { font-size: 20px; }
   .pp-stat { padding: 10px 11px; }

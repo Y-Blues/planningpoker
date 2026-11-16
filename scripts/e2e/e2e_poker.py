@@ -170,11 +170,14 @@ def jira_import(context, alice, bob):
     check("the recap is a tree: epic (never played) > story > sub-task", flat["KP-3"][0] == "pp-depth-2" and flat["KP-2"][0] == "pp-depth-1" and flat["KP-1"][0] == "pp-depth-0",
           str(rows))
     check("a story shows its own estimate and the total below it", flat["KP-2"][2] == "5" and flat["KP-2"][3] == "3", str(flat["KP-2"]))
+    check("a story shows its total below ÷ 8 rounded up, an epic and a sub-task none", flat["KP-2"][4] == "1" and
+          flat["KP-1"][4] == "" and flat["KP-3"][4] == "" and "÷ 8" in bob.inner_text(".pp-recap-table thead"), str(rows))
     check("a hand-typed task joins its parent, never played: a group", flat["9001"][0] == "pp-depth-1" and flat["EPIC-9"][3] == "8" and
           flat["EPIC-9"][2] == "–", str([flat.get("9001"), flat.get("EPIC-9")]))
     check("the grand total (101 and the three above)", bob.inner_text(".pp-recap-table tfoot").split()[-1] == "29", bob.inner_text(".pp-recap-table tfoot"))
     bob.screenshot(path=os.path.join(SHOTS, "9_recap_tree.png"), full_page=True)
     bob.set_viewport_size({"width": 360, "height": 800})
+    bob.evaluate("new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))")   # the narrow styles applied
     check("the recap tree fits a 360px screen", bob.evaluate("document.documentElement.scrollWidth <= window.innerWidth"))
     bob.screenshot(path=os.path.join(SHOTS, "9b_recap_tree_360.png"), full_page=True)
     bob.set_viewport_size({"width": 1280, "height": 720})

@@ -258,8 +258,27 @@ class TestView(unittest.TestCase):
     def test_status_and_recap(self):
         self.assertEqual(view.status(state(task=False), "a"), "Choisissez la première tâche.")
         self.assertEqual(view.status(state(me_votes=True), "b"), "2 votes sur 2")
-        self.assertEqual(view.recap(state(revealed=True)), ([{"depth": 0, "number": "12", "title": "", "kind": "", "final": "8", "sub": ""}], "8"))
+        self.assertEqual(view.recap(state(revealed=True)), ([{"depth": 0, "number": "12", "title": "", "kind": "", "final": "8", "sub": "", "divided": ""}], "8"))
         self.assertEqual(view.results(state(revealed=True))[0], ("Moyenne", "5,5"))
+
+    def test_divided_up_rounds_up(self):
+        self.assertEqual([view.divided_up(total) for total in (0, 1, 8, 13, 16, 17, 24.5)], [0, 1, 1, 2, 2, 3, 4])
+
+    def test_only_a_story_with_children_shows_its_total_divided(self):
+        tree = [{"number": "E", "kind": "epic", "final": "", "total": 30, "children": [
+            {"number": "S1", "kind": "story", "final": "5", "total": 17, "children": [
+                {"number": "T1", "kind": "subtask", "final": "13", "total": 0, "children": []},
+                {"number": "T2", "kind": "subtask", "final": "?", "total": 0, "children": []},
+                {"number": "T3", "kind": "subtask", "final": "3", "total": 0, "children": []},
+                {"number": "T4", "kind": "subtask", "final": "1", "total": 0, "children": []}]},
+            {"number": "S2", "kind": "story", "final": "8", "total": 0, "children": []},
+            {"number": "S3", "kind": "story", "final": "", "total": 0, "children": [
+                {"number": "T5", "kind": "subtask", "final": "☕", "total": 0, "children": []}]}]}]
+        rows, total = view.recap({"recap": tree})
+        self.assertEqual({row["number"]: (row["sub"], row["divided"]) for row in rows},
+                         {"E": ("30", ""), "S1": ("17", "3"), "T1": ("", ""), "T2": ("", ""), "T3": ("", ""),
+                          "T4": ("", ""), "S2": ("", ""), "S3": ("0", "0"), "T5": ("", "")})
+        self.assertEqual(total, "30")
 
     def test_moments_play_once(self):
         first, snap = view.moments(None, state(), "a", "")
@@ -380,6 +399,13 @@ class TestJiraImport(Page):
         self.assertEqual([r.attrs["class"] for r in rows], ["pp-depth-0 is-parent", "pp-depth-1"])
         self.assertEqual([td.text for td in self.find("td")][-3:], ["Total", "5", ""])
         self.assertEqual(self.find(".pp-sub")[0].text, "5")
+        self.assertEqual(self.find(".pp-divided"), [])   # no story with children: no ÷ 8 column
+        recap[0]["total"], recap[0]["children"][0]["children"] = 18, [
+            {"number": "KP-3", "title": "", "kind": "subtask", "final": "13", "total": 0, "children": []}]
+        recap[0]["children"][0]["total"] = 13
+        await self.open("/#" + ROOM, answer={**state(revealed=True), "recap": recap, "me": "b", "stamp": 9})
+        self.assertEqual([td.text for td in self.find(".pp-divided")], ["÷ 8", "", "2", ""])   # header, epic, story, sub-task
+        self.assertEqual([td.text for td in self.find("td")][-4:], ["Total", "18", "", ""])
         self.assertEqual(len(self.find(".pp-queue-item")), 0)   # a guest sees the recap only
         await self.open("/#" + ROOM, answer={**state(me_votes=False), "queue": queue, "me": "a"})   # a vote in progress
         self.assertTrue(all("disabled" in item.attrs for item in self.find(".pp-queue-item")))

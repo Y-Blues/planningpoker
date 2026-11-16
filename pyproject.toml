@@ -1,6 +1,6 @@
 [project]
 name = "ycappuccino-planningpoker"
-version = "0.1.0.1"
+version = "0.1.0.2"
 description = "Planning poker on YCappuccino: anonymous nicknames, a shared room, live votes over WebSocket, a Pyodide page"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]

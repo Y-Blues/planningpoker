@@ -1,6 +1,8 @@
 """What the page shows of a room's state for one participant, without any DOM: the seats (around the table), the
 table's status, what the host may do, the results and the recap."""
 
+import math
+
 from ycappuccino.planningpoker.deck import DECK, format_average, value
 
 
@@ -81,15 +83,24 @@ def flatten(tree: list, depth: int = 0) -> list:
     return rows
 
 
+STORY_DIVISOR = 8   # a story's total is also shown divided by it, rounded up (owner 2026-11-16)
+
+
+def divided_up(total: float) -> int:
+    """total / STORY_DIVISOR rounded up: 13 -> 2, 16 -> 2, 17 -> 3, 0 -> 0"""
+    return math.ceil(total / STORY_DIVISOR)
+
+
 def recap(state: dict) -> tuple[list, str]:
-    """the recap tree as rows (depth, number, title, kind, final, sub: the descendants' total, "" for a leaf) and the
-    total of every numeric final"""
+    """the recap tree as rows (depth, number, title, kind, final, sub: the descendants' total, "" for a leaf, divided:
+    a story's sub divided_up, "" for any other row) and the total of every numeric final"""
     rows, total = [], 0.0
     for depth, node in flatten(state.get("recap") or []):
         total += value(node.get("final") or "") or 0
         rows.append({"depth": depth, "number": node.get("number") or "", "title": node.get("title") or "",
                      "kind": node.get("kind") or "", "final": node.get("final") or "–",
-                     "sub": format_average(node["total"]) if node.get("children") else ""})
+                     "sub": format_average(node["total"]) if node.get("children") else "",
+                     "divided": str(divided_up(node["total"])) if node.get("kind") == "story" and node.get("children") else ""})
     return rows, format_average(total)
 
 

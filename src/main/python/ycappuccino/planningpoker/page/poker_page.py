@@ -620,6 +620,10 @@ class PokerPage(ISubscriber, ISubscriptionListener):
         nested = any(row["sub"] for row in rows)
         if nested:
             self._el(head, "th", "", "Σ dessous", title="Total des estimations des éléments en dessous")
+        divided = any(row["divided"] for row in rows)
+        if divided:
+            self._el(head, "th", "pp-divided", f"÷ {view.STORY_DIVISOR}", aria_label=f"divisé par {view.STORY_DIVISOR}",
+                     title=f"Story : total dessous divisé par {view.STORY_DIVISOR}, arrondi au supérieur")
         body = self._el(table, "tbody")
         for row in rows:
             line = self._el(body, "tr", f"pp-depth-{min(row['depth'], 4)}" + (" is-parent" if row["sub"] else ""))
@@ -632,10 +636,14 @@ class PokerPage(ISubscriber, ISubscriptionListener):
             self._el(line, "td", "", row["final"])
             if nested:
                 self._el(line, "td", "pp-sub", row["sub"])
+            if divided:
+                self._el(line, "td", "pp-divided", row["divided"])
         foot = self._el(self._el(table, "tfoot"), "tr")
         self._el(foot, "td", "", "Total")
         self._el(foot, "td", "", total)
         if nested:
+            self._el(foot, "td", "")
+        if divided:
             self._el(foot, "td", "")
 
 
